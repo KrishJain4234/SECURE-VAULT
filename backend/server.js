@@ -62,13 +62,25 @@ app.post('/upload', upload.single('document'), async (req, res) => {
         const fileId = crypto.randomUUID();
 
         // Optional OCR Integration
-        let extractedText = '';
+        let keyFields = [];
         try {
-            // Tesseract mostly works with images. For PDF, it might need preprocessing.
+            console.log(`[Upload] Running OCR to extract key fields for ${req.file.originalname}...`);
             const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
-            extractedText = text.trim();
+            
+            // Extract potential ID numbers (alphanumeric, at least 5 chars)
+            const idMatches = text.match(/\b(?:\d{5,}|[a-zA-Z0-9-]{6,})\b/g) || [];
+            
+            // Extract potential Names (capitalized words like "John Doe")
+            const nameMatches = text.match(/\b[A-Z][a-z]+(?: [A-Z][a-z]+){1,2}\b/g) || [];
+            
+            // Merge and normalize (lowercase, trimmed)
+            keyFields = [...idMatches, ...nameMatches]
+                 .map(k => k.trim().toLowerCase())
+                 .filter(k => k.length > 3); // filter out tiny garbage
+                 
+            console.log(`[Upload] Extracted Key Fields:`, keyFields);
         } catch (error) {
-            console.error('OCR skip or failed (expected if PDF without ghostscript):', error.message);
+            console.error('[Upload] OCR failed (likely not an image):', error.message);
         }
 
         // Save to our simulated blockchain structure
@@ -76,7 +88,7 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             id: fileId,
             hash: fileHash,
             filename: req.file.originalname,
-            extractedText: extractedText,
+            keyFields: keyFields,
             timestamp: new Date().toISOString()
         };
         saveStorage();
@@ -99,53 +111,67 @@ app.post('/verify', upload.single('document'), async (req, res) => {
         const currentHash = await calculateHash(filePath);
 
         // Find the record matching the hash
-        const storedRec = Object.values(blockchainStorage).find(p => p.hash === currentHash);
+        const storedRecs = Object.values(blockchainStorage);
+        const exactMatch = storedRecs.find(p => p.hash === currentHash);
 
-        // Optional OCR on the verification document
-        let currentText = '';
-        try {
-            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
-            currentText = text.trim();
-        } catch (error) {
-            // Ignore if it fails OCR
-        }
-        
-        // Remove the temporary file used for verification
-        fs.unlinkSync(filePath);
-
-        if (storedRec) {
-            let ocrMatchMessage = null;
-            if (storedRec.extractedText && currentText) {
-                if (storedRec.extractedText === currentText) {
-                    ocrMatchMessage = "Data match confirmed";
-                } else {
-                    ocrMatchMessage = "Valid with minor changes";
-                }
-            } else if (currentText && !storedRec.extractedText) {
-                 ocrMatchMessage = "Data mismatch detected";
-            }
-
+        if (exactMatch) {
+            fs.unlinkSync(filePath); // Cleanup
             return res.json({
                 status: 'VERIFIED',
-                message: 'Document matched with blockchain record',
-                ocrStatus: ocrMatchMessage,
-                fileId: storedRec.id
+                message: 'Document matched perfectly with blockchain record (Hash matched)',
+                fileId: exactMatch.id
             });
         }
 
-        // If Hash does not match entirely but maybe OCR does? 
-        // We'll consider it TAMPERED if hash fails, but we can check OCR mismatch
-        const possibleRec = Object.values(blockchainStorage).find(p => p.filename === req.file.originalname);
+        // Hash did NOT match. Run OCR to check if it's just resize/compression vs tampering.
+        console.log(`[Verify] Hash mismatch for ${req.file.originalname}. Running OCR fallback comparison...`);
+        let currentText = '';
+        try {
+            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+            // Normalize spaces and convert to lower case for flexible inclusion check
+            currentText = text.replace(/\s+/g, ' ').toLowerCase();
+        } catch (error) {
+            console.error('[Verify] OCR fallback failed:', error.message);
+        }
         
-        let ocrStatusForTampering = null;
-        if (possibleRec && possibleRec.extractedText !== currentText && currentText) {
-             ocrStatusForTampering = "Data mismatch detected";
+        fs.unlinkSync(filePath); // Cleanup
+
+        let foundMinorMatch = false;
+        let matchedId = null;
+
+        if (currentText.length > 0) {
+            for (const rec of storedRecs) {
+                if (rec.keyFields && rec.keyFields.length > 0) {
+                    let matchCount = 0;
+                    for (const field of rec.keyFields) {
+                        if (currentText.includes(field)) {
+                            matchCount++;
+                        }
+                    }
+                    
+                    // If we matched at least 1 or 2 meaningful extracted fields, it's a minor change
+                    const threshold = Math.min(2, Math.max(1, Math.floor(rec.keyFields.length / 3)));
+                    if (matchCount >= threshold && matchCount > 0) {
+                        foundMinorMatch = true;
+                        matchedId = rec.id;
+                        console.log(`[Verify] Minor match found! Matched ${matchCount} out of ${rec.keyFields.length} key fields.`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (foundMinorMatch) {
+            return res.json({
+                status: 'VALID (Minor Changes Detected)',
+                message: 'Hash mismatched but key OCR data matched. Indicates resizing or compression.',
+                fileId: matchedId
+            });
         }
 
         return res.json({
             status: 'TAMPERED',
-            message: 'Document hash does not match original record.',
-            ocrStatus: ocrStatusForTampering
+            message: 'Document hash and key contents do NOT match any authentic record.',
         });
 
     } catch (error) {

@@ -225,18 +225,22 @@ function DocumentManager({ mode }) {
                      <h3 style={{...successTitleStyle, color: '#39ff14', textShadow: '0 0 15px #39ff14'}}>
                        &#10004; DOCUMENT VERIFIED SUCCESSFULLY
                      </h3>
+                  ) : result.status.includes('VALID') ? (
+                     <h3 style={{...successTitleStyle, color: '#ffaa00', textShadow: '0 0 15px #ffaa00'}}>
+                       &#9888; VALID (MINOR CHANGES)
+                     </h3>
                   ) : (
                      <h3 style={{...successTitleStyle, color: '#ff003c', textShadow: '0 0 15px #ff003c'}}>
                        &#10008; ALERT: DOCUMENT TAMPERED
                      </h3>
                   )}
 
-                  <div style={{...resultDetailsBox, borderColor: result.status === 'VERIFIED' ? '#39ff14' : '#ff003c'}}>
+                  <div style={{...resultDetailsBox, borderColor: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c'}}>
                     <p style={detailRowStyle}><strong style={labelStyle}>STATUS:</strong> 
                       <span style={{ 
-                        color: result.status === 'VERIFIED' ? '#39ff14' : '#ff003c', 
+                        color: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c', 
                         fontWeight: 'bold', fontSize: '1.2rem',
-                        textShadow: result.status === 'VERIFIED' ? '0 0 10px #39ff14' : '0 0 10px #ff003c'
+                        textShadow: result.status === 'VERIFIED' ? '0 0 10px #39ff14' : result.status.includes('VALID') ? '0 0 10px #ffaa00' : '0 0 10px #ff003c'
                       }}>
                         {result.status}
                       </span>
