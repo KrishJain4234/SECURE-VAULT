@@ -2,23 +2,19 @@ export default function Features() {
   const features = [
     {
       title: "IMMUTABLE STORAGE",
-      desc: "Doc hashes are firmly anchored into our simulated blockchain node, ensuring mathematical proof of existence at a specific timestamp.",
-      icon: "⛓️"
+      desc: "Document hashes are securely anchored to the blockchain ledger. This guarantees mathematical proof that a file existed in its exact state at a specific point in time."
     },
     {
       title: "DEEP OCR ANALYSIS",
-      desc: "Each uploaded document undergoes text extraction. Verify mode compares characters side-by-side to detect micro-variations that hashing alone might miss.",
-      icon: "👁️"
+      desc: "Our engine extracts and analyzes the text of every document. If visual tweaks alter the file's hash, our OCR seamlessly kicks in to cross-check the core data."
     },
     {
       title: "INSTANT QR VERIFICATION",
-      desc: "Every secured document is issued a unique dynamic QR code. Anyone scanning the code can visually confirm the document's authenticity from the network.",
-      icon: "📱"
+      desc: "Every secured document gets a unique QR code. A quick scan is all it takes for anyone to immediately confirm its authenticity and origin."
     },
     {
       title: "ZERO TRUST ARCHITECTURE",
-      desc: "Local nodes don't retain underlying documents after processing. The system solely verifies against highly-encrypted SHA-256 signatures.",
-      icon: "🛡️"
+      desc: "Your raw data never stays on our servers. Processing is ephemeral, and the system only ever retains the cryptographic signatures required for verification."
     }
   ];
 
@@ -36,7 +32,6 @@ export default function Features() {
                     transform: translateY(-5px);
                  }
                `}</style>
-               <div style={iconStyle}>{f.icon}</div>
                <h3 style={cardTitleStyle}>{f.title}</h3>
                <p style={cardDescStyle}>{f.desc}</p>
             </div>
@@ -84,12 +79,6 @@ const cardStyle = {
   padding: '2rem',
   transition: 'all 0.3s ease',
   textAlign: 'left'
-};
-
-const iconStyle = {
-  fontSize: '3rem',
-  marginBottom: '1.5rem',
-  filter: 'drop-shadow(0 0 10px rgba(0, 243, 255, 0.5))'
 };
 
 const cardTitleStyle = {
