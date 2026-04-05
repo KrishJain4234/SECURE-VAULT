@@ -6,6 +6,7 @@ const _path = require('path');
 const cors = require('cors');
 const QRCode = require('qrcode');
 const Tesseract = require('tesseract.js');
+const pdfParse = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,11 +62,20 @@ app.post('/upload', upload.single('document'), async (req, res) => {
         const fileHash = await calculateHash(filePath);
         const fileId = crypto.randomUUID();
 
-        // Optional OCR Integration
+        // Optional text extraction Integration
         let keyFields = [];
         try {
-            console.log(`[Upload] Running OCR to extract key fields for ${req.file.originalname}...`);
-            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+            console.log(`[Upload] Extracting key fields for ${req.file.originalname}...`);
+            let text = '';
+            const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+            if (isPDF) {
+                const dataBuffer = fs.readFileSync(filePath);
+                const data = await pdfParse(dataBuffer);
+                text = data.text;
+            } else {
+                const result = await Tesseract.recognize(filePath, 'eng');
+                text = result.data.text;
+            }
             
             // Extract potential ID numbers (alphanumeric, at least 5 chars)
             const idMatches = text.match(/\b(?:\d{5,}|[a-zA-Z0-9-]{6,})\b/g) || [];
@@ -123,15 +133,24 @@ app.post('/verify', upload.single('document'), async (req, res) => {
             });
         }
 
-        // Hash did NOT match. Run OCR to check if it's just resize/compression vs tampering.
-        console.log(`[Verify] Hash mismatch for ${req.file.originalname}. Running OCR fallback comparison...`);
+        // Hash did NOT match. Run extraction to check if it's just resize/compression vs tampering.
+        console.log(`[Verify] Hash mismatch for ${req.file.originalname}. Running fallback comparison...`);
         let currentText = '';
         try {
-            const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
+            let text = '';
+            const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+            if (isPDF) {
+                const dataBuffer = fs.readFileSync(filePath);
+                const data = await pdfParse(dataBuffer);
+                text = data.text;
+            } else {
+                const result = await Tesseract.recognize(filePath, 'eng');
+                text = result.data.text;
+            }
             // Normalize spaces and convert to lower case for flexible inclusion check
             currentText = text.replace(/\s+/g, ' ').toLowerCase();
         } catch (error) {
-            console.error('[Verify] OCR fallback failed:', error.message);
+            console.error('[Verify] Fallback text extraction failed:', error.message);
         }
         
         fs.unlinkSync(filePath); // Cleanup
