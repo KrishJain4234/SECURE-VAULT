@@ -82,11 +82,16 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             
             // Extract potential Names (capitalized words like "John Doe")
             const nameMatches = text.match(/\b[A-Z][a-z]+(?: [A-Z][a-z]+){1,2}\b/g) || [];
+
+            // Extract potential Dates
+            const dateMatches = text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/gi) || [];
             
-            // Merge and normalize (lowercase, trimmed)
-            keyFields = [...idMatches, ...nameMatches]
-                 .map(k => k.trim().toLowerCase())
+            // Merge and normalize text by removing spaces and case sensitivity
+            keyFields = [...idMatches, ...nameMatches, ...dateMatches]
+                 .map(k => k.replace(/\s+/g, '').toLowerCase())
                  .filter(k => k.length > 3); // filter out tiny garbage
+                 
+            req.normalizedText = text.replace(/\s+/g, '').toLowerCase();
                  
             console.log(`[Upload] Extracted Key Fields:`, keyFields);
         } catch (error) {
@@ -99,6 +104,7 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             hash: fileHash,
             filename: req.file.originalname,
             keyFields: keyFields,
+            normalizedText: req.normalizedText || "",
             timestamp: new Date().toISOString()
         };
         saveStorage();
@@ -147,15 +153,16 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                 const result = await Tesseract.recognize(filePath, 'eng');
                 text = result.data.text;
             }
-            // Normalize spaces and convert to lower case for flexible inclusion check
-            currentText = text.replace(/\s+/g, ' ').toLowerCase();
+            // Normalize spaces and convert to lower case for meaningful textual check
+            currentText = text.replace(/\s+/g, '').toLowerCase();
         } catch (error) {
             console.error('[Verify] Fallback text extraction failed:', error.message);
         }
         
         fs.unlinkSync(filePath); // Cleanup
 
-        let foundMinorMatch = false;
+        let isVerified = false;
+        let isValidMinor = false;
         let matchedId = null;
 
         if (currentText.length > 0) {
@@ -168,29 +175,46 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                         }
                     }
                     
-                    // If we matched at least 1 or 2 meaningful extracted fields, it's a minor change
-                    const threshold = Math.min(2, Math.max(1, Math.floor(rec.keyFields.length / 3)));
-                    if (matchCount >= threshold && matchCount > 0) {
-                        foundMinorMatch = true;
+                    const ratio = matchCount / rec.keyFields.length;
+                    
+                    if (ratio === 1) {
+                        isVerified = true;
                         matchedId = rec.id;
-                        console.log(`[Verify] Minor match found! Matched ${matchCount} out of ${rec.keyFields.length} key fields.`);
+                        console.log(`[Verify] PERFECT TEXT MATCH! Key fields matched completely.`);
                         break;
+                    } else if (ratio >= 0.5) {
+                        isValidMinor = true;
+                        if (!matchedId) matchedId = rec.id;
                     }
+                }
+                
+                // Compare overall normalized text for small text differences
+                if (rec.normalizedText && Math.abs(rec.normalizedText.length - currentText.length) < 50) {
+                    isValidMinor = true;
+                    if (!matchedId) matchedId = rec.id;
                 }
             }
         }
 
-        if (foundMinorMatch) {
+        if (isVerified) {
+            return res.json({
+                status: 'VERIFIED',
+                message: 'Document matched based on key text content (Name, ID, Date).',
+                fileId: matchedId
+            });
+        }
+
+        if (isValidMinor) {
             return res.json({
                 status: 'VALID (Minor Changes Detected)',
-                message: 'Hash mismatched but key OCR data matched. Indicates resizing or compression.',
+                message: 'Hash mismatched but minor textual differences were valid.',
                 fileId: matchedId
             });
         }
 
         return res.json({
             status: 'TAMPERED',
-            message: 'Document hash and key contents do NOT match any authentic record.',
+            message: 'Document key fields differ heavily from original records.',
         });
 
     } catch (error) {
