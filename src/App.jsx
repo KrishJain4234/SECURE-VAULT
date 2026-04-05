@@ -4,6 +4,8 @@ import HowItWorks from './HowItWorks'
 import DocumentManager from './DocumentManager'
 import Navbar from './Navbar'
 import Features from './Features'
+import { Routes, Route } from 'react-router-dom'
+import VerificationPage from './VerificationPage'
 
 const CHARS = ['V', 'M', 'S', 'W', 'O', 'T', 'F', 'D', 'I', 'u', 'e', 'X', '1', '0', '>', '<', '//', '#', '@']
 
@@ -99,38 +101,45 @@ function App() {
       ))}
 
       <div style={{ paddingTop: '100px', minHeight: '100vh' }}>
-        {currentPage === 'home' && (
-          <div className="container">
-            <h1 className="hero-title" data-text="SECURE-VAULT">SECURE-VAULT</h1>
-            
-            <div className="hero-tag">
-              <span>Tamper-Proof Documents</span>
-              <span className="bullet">•</span>
-              <span>Powered by Blockchain</span>
-            </div>
+        <Routes>
+          <Route path="/" element={
+            <>
+              {currentPage === 'home' && (
+                <div className="container">
+                  <h1 className="hero-title" data-text="SECURE-VAULT">SECURE-VAULT</h1>
+                  
+                  <div className="hero-tag">
+                    <span>Tamper-Proof Documents</span>
+                    <span className="bullet">•</span>
+                    <span>Powered by Blockchain</span>
+                  </div>
 
-            <div className="slider-container">
-              <div className="slider-track">
-                <div className="slider-thumb-blue"></div>
-                <div className="slider-thumb-pink"></div>
-              </div>
-            </div>
+                  <div className="slider-container">
+                    <div className="slider-track">
+                      <div className="slider-thumb-blue"></div>
+                      <div className="slider-thumb-pink"></div>
+                    </div>
+                  </div>
 
-            <div className="status-bar">
-              <span>[ SYSTEM STATUS: ACTIVE ]</span>
-              <span>•</span>
-              <span>[ ENCRYPTION: MAXIMUM ]</span>
-            </div>
-          </div>
-        )}
+                  <div className="status-bar">
+                    <span>[ SYSTEM STATUS: ACTIVE ]</span>
+                    <span>•</span>
+                    <span>[ ENCRYPTION: MAXIMUM ]</span>
+                  </div>
+                </div>
+              )}
 
-        {currentPage === 'how-it-works' && <HowItWorks />}
-        
-        {currentPage === 'features' && <Features />}
+              {currentPage === 'how-it-works' && <HowItWorks />}
+              
+              {currentPage === 'features' && <Features />}
 
-        {currentPage === 'upload' && <DocumentManager mode="upload" />}
-        
-        {currentPage === 'verify' && <DocumentManager mode="verify" />}
+              {currentPage === 'upload' && <DocumentManager mode="upload" />}
+              
+              {currentPage === 'verify' && <DocumentManager mode="verify" />}
+            </>
+          } />
+          <Route path="/verify/:documentId" element={<VerificationPage />} />
+        </Routes>
       </div>
     </>
   )

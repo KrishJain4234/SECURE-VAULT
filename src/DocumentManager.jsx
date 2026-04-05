@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 
 function DocumentManager({ mode }) {
   const activeTab = mode || 'upload'; // controlled externally now
@@ -213,7 +214,7 @@ function DocumentManager({ mode }) {
                      <div style={qrContainerStyle}>
                        <p style={qrLabelStyle}>SCAN TO VERIFY DOCUMENT</p>
                        <div style={qrBoxStyle}>
-                         <img src={`http://localhost:5000/generate-qr?fileId=${result.fileId}`} alt="QR Code" style={{width: '180px', height: '180px', display: 'block'}} />
+                         <QRCodeSVG value={`${window.location.origin}/verify/${result.fileId}`} size={180} fgColor="#000000" bgColor="#ffffff" style={{display: 'block'}} />
                        </div>
                      </div>
                   )}
