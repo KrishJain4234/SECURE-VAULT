@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './index.css'
+import HowItWorks from './HowItWorks'
 
 const CHARS = ['V', 'M', 'S', 'W', 'O', 'T', 'F', 'D', 'I', 'u', 'e', 'X', '1', '0', '>', '<', '//', '#', '@']
 
@@ -95,9 +96,9 @@ function App() {
         <h1 className="hero-title" data-text="SECURE-VAULT">SECURE-VAULT</h1>
         
         <div className="hero-tag">
-          <span>BREACH THE FIREWALL</span>
+          <span>Tamper-Proof Documents</span>
           <span className="bullet">•</span>
-          <span>SECURE THE FUTURE</span>
+          <span>Powered by Blockchain</span>
         </div>
 
         <div className="slider-container">
@@ -113,6 +114,8 @@ function App() {
           <span>[ ENCRYPTION: MAXIMUM ]</span>
         </div>
       </div>
+      
+      <HowItWorks />
     </>
   )
 }
