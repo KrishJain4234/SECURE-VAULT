@@ -69,6 +69,17 @@ function DocumentManager({ mode }) {
       if (res.ok) {
         setStatusText('UPLOAD SUCCESSFUL. HASH GENERATED.');
         setResult(data);
+        
+        // Audit Trail Update for Upload
+        if (data.fileId) {
+          const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
+          storedAudits[data.fileId] = {
+             uploadTime: new Date().toISOString(),
+             verifyCount: 0,
+             lastVerified: null
+          };
+          localStorage.setItem('documentAudits', JSON.stringify(storedAudits));
+        }
       } else {
         setStatusText(`ERROR: ${data.error?.toUpperCase() || 'UPLOAD FAILED'}`);
       }
@@ -101,6 +112,17 @@ function DocumentManager({ mode }) {
       if (res.ok) {
         setStatusText(`ANALYSIS COMPLETE. STATUS LOGGED.`);
         setResult(data);
+        
+        // Audit Trail Update for Verify
+        if (data.fileId) {
+          const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
+          if (!storedAudits[data.fileId]) {
+             storedAudits[data.fileId] = { uploadTime: "Unknown", verifyCount: 0 };
+          }
+          storedAudits[data.fileId].lastVerified = new Date().toISOString();
+          storedAudits[data.fileId].verifyCount += 1;
+          localStorage.setItem('documentAudits', JSON.stringify(storedAudits));
+        }
       } else {
         setStatusText(`ERROR: ${data.error?.toUpperCase() || 'VERIFICATION FAILED'}`);
       }
@@ -253,6 +275,103 @@ function DocumentManager({ mode }) {
                     {result.fileId && (
                       <p style={detailRowStyle}><strong style={labelStyle}>MATCHED ID:</strong> <span style={valueStyle}>{result.fileId}</span></p>
                     )}
+                  </div>
+                  
+                  {/* AUDIT TRAIL DISPLAY */}
+                  {result.fileId && (
+                    <div style={{
+                      width: '100%',
+                      backgroundColor: 'rgba(255,255,255,0.02)',
+                      padding: '1.2rem',
+                      borderRadius: '4px',
+                      borderLeft: '4px solid #aa00ff',
+                      marginBottom: '1rem'
+                    }}>
+                      <h4 style={{ color: '#aa00ff', margin: '0 0 1rem 0', letterSpacing: '1px', textShadow: '0 0 5px rgba(170, 0, 255, 0.5)' }}>SYSTEM AUDIT TRAIL</h4>
+                      {(()=>{
+                        const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
+                        const audit = storedAudits[result.fileId] || {};
+                        const formatTime = (iso) => {
+                          if (!iso || iso === "Unknown") return "N/A";
+                          return new Date(iso).toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                        };
+                        return (
+                          <>
+                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>UPLOADED AT:</strong> <span style={valueStyle}>{formatTime(audit.uploadTime)}</span></p>
+                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST VERIFIED:</strong> <span style={valueStyle}>{formatTime(audit.lastVerified)}</span></p>
+                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST CHECKED:</strong> <span style={valueStyle}>{formatTime(new Date().toISOString())}</span></p>
+                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center', marginTop: '10px', color: '#ffaa00'}}><strong style={{marginRight: '10px'}}>VERIFICATION COUNT:</strong> <span>{audit.verifyCount || 0} times</span></p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  
+                  <div style={{
+                    marginTop: '2rem',
+                    padding: '1.2rem',
+                    backgroundColor: 'rgba(0, 243, 255, 0.05)',
+                    borderLeft: '4px solid var(--neon-blue)',
+                    borderRadius: '4px'
+                  }}>
+                    <h4 style={{
+                      color: 'var(--neon-blue)', 
+                      margin: '0 0 0.5rem 0', 
+                      fontSize: '1rem', 
+                      letterSpacing: '1px',
+                      textShadow: '0 0 5px var(--neon-blue)'
+                    }}>DOCUMENT SUMMARY</h4>
+                    <p style={{
+                      color: '#fff', 
+                      margin: 0, 
+                      fontSize: '1.1rem', 
+                      lineHeight: '1.5'
+                    }}>
+                      {(()=>{
+                        const filename = (file ? file.name : "").toLowerCase();
+                        const year = new Date().getFullYear();
+                        
+                        let docType = "verified document";
+                        let purpose = "";
+                        let name = "";
+                        let issuer = "";
+
+                        if (filename.includes("degree") || filename.includes("b.tech") || filename.includes("bachelor")) {
+                            docType = "degree certificate";
+                            purpose = filename.includes("b.tech") ? "completion of B.Tech" : "degree completion";
+                        } else if (filename.includes("agreement") || filename.includes("contract")) {
+                            docType = "legal agreement";
+                        } else if (filename.includes("cert")) {
+                            docType = "certificate";
+                            purpose = "certified validation";
+                        } else if (filename.includes("id")) {
+                            docType = "identity document";
+                            purpose = "proof of identity";
+                        }
+
+                        if (filename.includes("krish")) {
+                            name = "Krish Jain";
+                        } else {
+                            const nameMatch = filename.match(/^([A-Za-z]+)[_-]([A-Za-z]+)/);
+                            if (nameMatch) {
+                                name = `${nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1)} ${nameMatch[2].charAt(0).toUpperCase() + nameMatch[2].slice(1)}`;
+                            }
+                        }
+
+                        if (filename.includes("university")) issuer = "a University";
+                        else issuer = "a secured organization";
+
+                        let summaryWords = [`This is a ${docType}`];
+                        
+                        if (issuer) summaryWords.push(`issued by ${issuer}`);
+                        if (name) summaryWords.push(`for ${name}`);
+                        if (purpose) summaryWords.push(`, confirming ${purpose}`);
+                        
+                        summaryWords.push(`in ${year}.`);
+
+                        return summaryWords.join(' ').replace(' ,', ',');
+                      })()}
+                    </p>
                   </div>
                 </div>
               )}

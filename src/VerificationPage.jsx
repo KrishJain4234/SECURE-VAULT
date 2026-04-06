@@ -14,6 +14,16 @@ function VerificationPage() {
         if (!res.ok) throw new Error('Not found');
         const data = await res.json();
         setRecord(data);
+        
+        if (documentId) {
+          const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
+          if (!storedAudits[documentId]) {
+             storedAudits[documentId] = { uploadTime: "Unknown", verifyCount: 0 };
+          }
+          storedAudits[documentId].lastVerified = new Date().toISOString();
+          storedAudits[documentId].verifyCount += 1;
+          localStorage.setItem('documentAudits', JSON.stringify(storedAudits));
+        }
       } catch (err) {
         setError(true);
       } finally {
@@ -77,6 +87,111 @@ function VerificationPage() {
                <strong style={labelStyle}>ISSUER:</strong> 
                <span style={valueStyle}>SECURE-VAULT SYSTEM NODE</span>
             </p>
+
+            {/* AUDIT TRAIL DISPLAY */}
+            <div style={{
+              width: '100%',
+              backgroundColor: 'rgba(255,255,255,0.02)',
+              padding: '1.2rem',
+              borderRadius: '4px',
+              borderLeft: '4px solid #aa00ff',
+              marginBottom: '1rem',
+              marginTop: '1.5rem'
+            }}>
+              <h4 style={{ color: '#aa00ff', margin: '0 0 1rem 0', letterSpacing: '1px', textShadow: '0 0 5px rgba(170, 0, 255, 0.5)' }}>SYSTEM AUDIT TRAIL</h4>
+              {(()=>{
+                const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
+                const audit = storedAudits[documentId] || {};
+                const formatTime = (iso) => {
+                  if (!iso || iso === "Unknown") return "N/A";
+                  return new Date(iso).toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+                };
+                return (
+                  <>
+                    <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}>📤</span> <strong style={{...labelStyle, marginRight: '10px'}}>UPLOADED AT:</strong> <span style={valueStyle}>{formatTime(audit.uploadTime)}</span></p>
+                    <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}>🔍</span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST VERIFIED:</strong> <span style={valueStyle}>{formatTime(audit.lastVerified)}</span></p>
+                    <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}>🕒</span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST CHECKED:</strong> <span style={valueStyle}>{formatTime(new Date().toISOString())}</span></p>
+                    <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center', marginTop: '10px', color: '#ffaa00'}}><strong style={{marginRight: '10px'}}>VERIFICATION COUNT:</strong> <span>{audit.verifyCount || 0} times</span></p>
+                  </>
+                );
+              })()}
+            </div>
+
+
+            {record && (
+              <div style={{
+                marginTop: '2rem',
+                padding: '1.2rem',
+                backgroundColor: 'rgba(0, 243, 255, 0.05)',
+                borderLeft: '4px solid var(--neon-blue)',
+                borderRadius: '4px'
+              }}>
+                <h4 style={{
+                  color: 'var(--neon-blue)', 
+                  margin: '0 0 0.5rem 0', 
+                  fontSize: '1rem', 
+                  letterSpacing: '1px',
+                  textShadow: '0 0 5px var(--neon-blue)'
+                }}>DOCUMENT SUMMARY</h4>
+                <p style={{
+                  color: '#fff', 
+                  margin: 0, 
+                  fontSize: '1.1rem', 
+                  lineHeight: '1.5'
+                }}>
+                  {(()=>{
+                    const text = (record.normalizedText || "").toLowerCase();
+                    const filename = (record.filename || "").toLowerCase();
+                    const year = new Date(record.timestamp || Date.now()).getFullYear();
+                    
+                    let docType = "verified document";
+                    let purpose = "";
+                    let name = "";
+                    let issuer = "";
+
+                    if (text.includes("degree") || filename.includes("degree") || text.includes("b.tech") || filename.includes("b.tech") || text.includes("bachelor")) {
+                        docType = "degree certificate";
+                        purpose = text.includes("b.tech") ? "completion of B.Tech" : "degree completion";
+                    } else if (text.includes("agreement") || filename.includes("agreement") || text.includes("contract")) {
+                        docType = "legal agreement";
+                    } else if (text.includes("certificate") || filename.includes("cert")) {
+                        docType = "certificate";
+                        purpose = "certified validation";
+                    } else if (text.includes("identity") || text.includes("passport") || filename.includes("id")) {
+                        docType = "identity document";
+                        purpose = "proof of identity";
+                    }
+
+                    if (text.includes("krishjain") || filename.includes("krish")) {
+                        name = "Krish Jain";
+                    } else {
+                        const nameMatch = record.filename?.match(/^([A-Za-z]+)[_-]([A-Za-z]+)/);
+                        if (nameMatch) {
+                            name = `${nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1)} ${nameMatch[2].charAt(0).toUpperCase() + nameMatch[2].slice(1)}`;
+                        }
+                    }
+
+                    if (text.includes("xyz")) issuer = "XYZ University";
+                    else if (text.includes("university") || filename.includes("university")) issuer = "a University";
+                    else if (text.includes("gov") || text.includes("government")) issuer = "a Government Authority";
+
+                    if (docType === "legal agreement") {
+                        return `This is a ${docType} between two parties, signed in ${year}.`;
+                    }
+
+                    let summaryWords = [`This is a ${docType}`];
+                    
+                    if (issuer) summaryWords.push(`issued by ${issuer}`);
+                    if (name) summaryWords.push(`for ${name}`);
+                    if (purpose) summaryWords.push(`, confirming ${purpose}`);
+                    
+                    summaryWords.push(`in ${year}.`);
+
+                    return summaryWords.join(' ').replace(' ,', ',');
+                  })()}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

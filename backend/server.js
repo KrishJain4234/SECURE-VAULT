@@ -246,7 +246,10 @@ app.get('/info', (req, res) => {
      res.json({
          status: "Blockchain Record",
          hash: record.hash,
-         timestamp: record.timestamp
+         timestamp: record.timestamp,
+         filename: record.filename || '',
+         keyFields: record.keyFields || [],
+         normalizedText: record.normalizedText || ''
      });
 });
 
