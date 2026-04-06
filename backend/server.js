@@ -10,6 +10,7 @@ const pythonExecutable = os.platform() === 'win32'
     ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe') 
     : _path.join(__dirname, 'venv', 'bin', 'python');
 const Tesseract = require('tesseract.js');
+const stringSimilarity = require('string-similarity');
 const { PDFParse } = require('pdf-parse');
 const { exec } = require('child_process');
 const util = require('util');
@@ -225,31 +226,20 @@ app.post('/verify', upload.single('document'), async (req, res) => {
 
         if (currentText.length > 0) {
             for (const rec of storedRecs) {
-                if (rec.keyFields && rec.keyFields.length > 0) {
-                    let matchCount = 0;
-                    for (const field of rec.keyFields) {
-                        if (currentText.includes(field)) {
-                            matchCount++;
-                        }
-                    }
+                if (!rec.normalizedText) continue;
+                
+                // Compare overall normalized text for structural alignment (0.0 to 1.0)
+                const similarityScore = stringSimilarity.compareTwoStrings(rec.normalizedText, currentText);
 
-                    const ratio = matchCount / rec.keyFields.length;
-
-                    if (ratio === 1) {
-                        isVerified = true;
-                        matchedId = rec.id;
-                        console.log(`[Verify] PERFECT TEXT MATCH! Key fields matched completely.`);
-                        break;
-                    } else if (ratio >= 0.5) {
-                        isValidMinor = true;
-                        if (!matchedId) matchedId = rec.id;
-                    }
-                }
-
-                // Compare overall normalized text for small text differences
-                if (rec.normalizedText && Math.abs(rec.normalizedText.length - currentText.length) < 50) {
+                if (similarityScore === 1) {
+                    isVerified = true;
+                    matchedId = rec.id;
+                    console.log(`[Verify] PERFECT TEXT MATCH! 100% structural similarity.`);
+                    break;
+                } else if (similarityScore >= 0.80) {
                     isValidMinor = true;
                     if (!matchedId) matchedId = rec.id;
+                    console.log(`[Verify] VALID (Minor Changes): ${(similarityScore * 100).toFixed(2)}% similarity.`);
                 }
             }
         }
