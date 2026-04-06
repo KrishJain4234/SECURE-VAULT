@@ -7,6 +7,9 @@ const cors = require('cors');
 const QRCode = require('qrcode');
 const Tesseract = require('tesseract.js');
 const { PDFParse } = require('pdf-parse');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -65,36 +68,60 @@ app.post('/upload', upload.single('document'), async (req, res) => {
         // Optional text extraction Integration
         let keyFields = [];
         try {
-            console.log(`[Upload] Extracting key fields for ${req.file.originalname}...`);
+            console.log(`[Upload] Extracting text for ${req.file.originalname}...`);
             let text = '';
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+
             if (isPDF) {
-                const dataBuffer = fs.readFileSync(filePath);
-                const parser = new PDFParse({ data: dataBuffer });
-                const data = await parser.getText();
-                await parser.destroy();
-                text = data.text;
+                try {
+                    const dataBuffer = fs.readFileSync(filePath);
+                    const parser = new PDFParse({ data: dataBuffer });
+                    const pdfData = await parser.getText();
+                    await parser.destroy();
+                    if (pdfData.text && pdfData.text.trim().length > 20) {
+                        console.log("[Upload] Digital PDF detected.");
+                        text = pdfData.text;
+                    }
+                } catch (e) {
+                    console.log("[Upload] Error or pure scanned PDF. Fallback logic will trigger.");
+                }
             } else {
                 const result = await Tesseract.recognize(filePath, 'eng');
-                text = result.data.text;
+                const confidence = result.data.confidence;
+                console.log(`[Upload] Tesseract Image Confidence: ${confidence}`);
+                if (confidence > 75) {
+                    console.log("[Upload] High confidence. Treated as digital printed font.");
+                    text = result.data.text;
+                } else {
+                    console.log("[Upload] Low confidence. Routing to heavy handwritten OCR pipeline.");
+                }
             }
-            
-            // Extract potential ID numbers (alphanumeric, at least 5 chars)
-            const idMatches = text.match(/\b(?:\d{5,}|[a-zA-Z0-9-]{6,})\b/g) || [];
-            
-            // Extract potential Names (capitalized words like "John Doe")
-            const nameMatches = text.match(/\b[A-Z][a-z]+(?: [A-Z][a-z]+){1,2}\b/g) || [];
 
-            // Extract potential Dates
-            const dateMatches = text.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/gi) || [];
-            
-            // Merge and normalize text by removing spaces and case sensitivity
-            keyFields = [...idMatches, ...nameMatches, ...dateMatches]
-                 .map(k => k.replace(/\s+/g, '').toLowerCase())
-                 .filter(k => k.length > 3); // filter out tiny garbage
-                 
+            if (!text) {
+                console.log("[Upload] Triggering Python OCR processor...");
+                const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
+                const scriptPath = _path.join(__dirname, 'ocr_processor.py');
+                const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
+                try {
+                    const parsedResult = JSON.parse(stdout.trim());
+                    if (parsedResult.error) throw new Error(parsedResult.error);
+                    text = parsedResult.text || '';
+                } catch (jsError) {
+                    console.error("[Upload] JSON parsing failed from Python output:", stdout);
+                    throw jsError;
+                }
+            }
+
+            // Extract all meaningful words to compare entire document contents
+            const allWords = text.toLowerCase()
+                .replace(/[^\w\s-]/gi, '') // remove punctuation except dashes
+                .split(/\s+/);
+
+            // Deduplicate and filter out tiny filler words (e.g., 'a', 'to', 'the')
+            keyFields = [...new Set(allWords)].filter(k => k.length > 4);
+
             req.normalizedText = text.replace(/\s+/g, '').toLowerCase();
-                 
+
             console.log(`[Upload] Extracted Key Fields:`, keyFields);
         } catch (error) {
             console.error('[Upload] OCR failed (likely not an image):', error.message);
@@ -147,22 +174,43 @@ app.post('/verify', upload.single('document'), async (req, res) => {
         try {
             let text = '';
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+
             if (isPDF) {
-                const dataBuffer = fs.readFileSync(filePath);
-                const parser = new PDFParse({ data: dataBuffer });
-                const data = await parser.getText();
-                await parser.destroy();
-                text = data.text;
+                try {
+                    const dataBuffer = fs.readFileSync(filePath);
+                    const parser = new PDFParse({ data: dataBuffer });
+                    const pdfData = await parser.getText();
+                    await parser.destroy();
+                    if (pdfData.text && pdfData.text.trim().length > 20) {
+                        text = pdfData.text;
+                    }
+                } catch (e) { }
             } else {
                 const result = await Tesseract.recognize(filePath, 'eng');
-                text = result.data.text;
+                if (result.data.confidence > 75) {
+                    text = result.data.text;
+                }
+            }
+
+            if (!text) {
+                const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
+                const scriptPath = _path.join(__dirname, 'ocr_processor.py');
+                const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
+                try {
+                    const parsedResult = JSON.parse(stdout.trim());
+                    if (parsedResult.error) throw new Error(parsedResult.error);
+                    text = parsedResult.text || '';
+                } catch (jsError) {
+                    console.error("[Verify] JSON parsing failed from Python output:", stdout);
+                    throw jsError;
+                }
             }
             // Normalize spaces and convert to lower case for meaningful textual check
             currentText = text.replace(/\s+/g, '').toLowerCase();
         } catch (error) {
             console.error('[Verify] Fallback text extraction failed:', error.message);
         }
-        
+
         fs.unlinkSync(filePath); // Cleanup
 
         let isVerified = false;
@@ -178,9 +226,9 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                             matchCount++;
                         }
                     }
-                    
+
                     const ratio = matchCount / rec.keyFields.length;
-                    
+
                     if (ratio === 1) {
                         isVerified = true;
                         matchedId = rec.id;
@@ -191,7 +239,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                         if (!matchedId) matchedId = rec.id;
                     }
                 }
-                
+
                 // Compare overall normalized text for small text differences
                 if (rec.normalizedText && Math.abs(rec.normalizedText.length - currentText.length) < 50) {
                     isValidMinor = true;
@@ -228,7 +276,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
 
 app.get('/generate-qr', async (req, res) => {
     const { fileId } = req.query;
-    
+
     if (!fileId || !blockchainStorage[fileId]) {
         return res.status(404).json({ error: 'File ID not found in simulated blockchain' });
     }
@@ -245,16 +293,16 @@ app.get('/generate-qr', async (req, res) => {
 });
 
 app.get('/info', (req, res) => {
-     const record = blockchainStorage[req.query.fileId];
-     if (!record) return res.status(404).json({ error: 'Not found' });
-     res.json({
-         status: "Blockchain Record",
-         hash: record.hash,
-         timestamp: record.timestamp,
-         filename: record.filename || '',
-         keyFields: record.keyFields || [],
-         normalizedText: record.normalizedText || ''
-     });
+    const record = blockchainStorage[req.query.fileId];
+    if (!record) return res.status(404).json({ error: 'Not found' });
+    res.json({
+        status: "Blockchain Record",
+        hash: record.hash,
+        timestamp: record.timestamp,
+        filename: record.filename || '',
+        keyFields: record.keyFields || [],
+        normalizedText: record.normalizedText || ''
+    });
 });
 
 app.listen(PORT, () => console.log(`Blockchain prototype API running on http://localhost:${PORT}`));
