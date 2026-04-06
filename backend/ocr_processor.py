@@ -8,6 +8,10 @@ import cv2
 import numpy as np
 import fitz  # PyMuPDF
 
+# Ensure stdout uses UTF-8 to prevent encoding errors on Windows
+if hasattr(sys.stdout, "encoding") and sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 OCR_SPACE_API_URL = "https://api.ocr.space/parse/image"
 OCR_SPACE_API_KEY = "K82674361888957"
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
