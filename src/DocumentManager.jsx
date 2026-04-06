@@ -1,9 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
+// Predefined list of authorized government officials (simulated)
+// For testing, users should add their MetaMask address here
+const AUTHORIZED_WALLETS = [
+  "0x123...",
+  "0xABC...",
+  "0x1234567890123456789012345678901234567890", // dummy
+];
+
 function DocumentManager({ mode }) {
   const activeTab = mode || 'upload'; // controlled externally now
   const [statusText, setStatusText] = useState(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
+  
+  // Wallet state
+  const [walletAddress, setWalletAddress] = useState("");
+  const [isAuthorized, setIsAuthorized] = useState(null);
+
   // Ensure status text resets when mode changes
   useEffect(() => {
      setStatusText(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
@@ -39,6 +52,39 @@ function DocumentManager({ mode }) {
     return () => clearInterval(interval);
   }, [loading]);
 
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const account = accounts[0];
+        setWalletAddress(account);
+        
+        // Simulate authorization logic
+        const isAuth = AUTHORIZED_WALLETS.some(w => w.toLowerCase() === account.toLowerCase());
+        setIsAuthorized(isAuth);
+        
+        if (isAuth) {
+          setStatusText(`WALLET CONNECTED. AUTHORIZED.`);
+        } else {
+          setStatusText(`ERROR: UNAUTHORIZED ISSUER`);
+        }
+      } catch (error) {
+        console.error(error);
+        if (error.code === 4001) {
+          setStatusText("ERROR: USER REJECTED CONNECTION");
+        } else {
+          setStatusText("ERROR: WALLET CONNECTION FAILED");
+        }
+      }
+    } else {
+      // Fallback for demo purposes if MetaMask is not installed
+      const demoAccount = AUTHORIZED_WALLETS[0] || "0x1234567890123456789012345678901234567890";
+      setWalletAddress(demoAccount);
+      setIsAuthorized(true); // Auto-authorize for the demo flow
+      setStatusText(`[SIMULATED] WALLET CONNECTED.`);
+    }
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -58,6 +104,7 @@ function DocumentManager({ mode }) {
     
     const formData = new FormData();
     formData.append('document', file);
+    formData.append('issuerId', walletAddress); // Attached issuer ID
 
     try {
       const res = await fetch('http://localhost:5000/upload', {
@@ -161,6 +208,12 @@ function DocumentManager({ mode }) {
           box-shadow: 0 0 20px rgba(0, 243, 255, 0.5) !important;
           text-shadow: 0 0 10px #fff !important;
         }
+
+        .metamask-btn-hover:hover {
+          background: rgba(246, 133, 27, 0.2) !important;
+          box-shadow: 0 0 20px rgba(246, 133, 27, 0.5) !important;
+          text-shadow: 0 0 10px #fff !important;
+        }
         
         .file-select-hover:hover {
           background: rgba(255, 0, 85, 0.15) !important;
@@ -180,6 +233,38 @@ function DocumentManager({ mode }) {
         {/* MAIN BODY */}
         <div className="terminal-body" style={bodyStyle}>
           
+          {/* WALLET CONNECT SECTION (UPLOAD ONLY) */}
+          {activeTab === 'upload' && (
+            <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+              {!walletAddress ? (
+                <button className="metamask-btn-hover" style={connectWalletBtnStyle} onClick={connectWallet}>
+                  CONNECT METAMASK
+                </button>
+              ) : (
+                <div style={{
+                  padding: '1rem',
+                  border: `2px solid ${isAuthorized ? '#39ff14' : '#ff003c'}`,
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  boxShadow: `0 0 15px ${isAuthorized ? 'rgba(57, 255, 20, 0.3)' : 'rgba(255, 0, 60, 0.3)'}`
+                }}>
+                  <p style={{ margin: 0, color: isAuthorized ? '#39ff14' : '#ff003c', fontWeight: 'bold', letterSpacing: '1px' }}>
+                    {isAuthorized 
+                      ? `WALLET CONNECTED: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}` 
+                      : `UNAUTHORIZED WALLET: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}`
+                    }
+                  </p>
+                  {!isAuthorized && (
+                    <p style={{ margin: '8px 0 0 0', color: '#ff003c', fontSize: '0.9rem', letterSpacing: '1px' }}>
+                      ACCESS DENIED: UNAUTHORIZED ISSUER
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* UPLOAD / SELECT SECTION */}
           <div style={inputSectionStyle}>
              <input 
@@ -203,14 +288,16 @@ function DocumentManager({ mode }) {
 
           {/* ACTION SECTION */}
           <div style={{marginTop: '2rem', textAlign: 'center'}}>
-            <button 
-              className="upload-btn-hover"
-              style={actionBtnStyle}
-              disabled={loading}
-              onClick={activeTab === 'upload' ? handleUpload : handleVerify}
-            >
-              {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
-            </button>
+            {!(activeTab === 'upload' && (!walletAddress || !isAuthorized)) && (
+              <button 
+                className="upload-btn-hover"
+                style={actionBtnStyle}
+                disabled={loading}
+                onClick={activeTab === 'upload' ? handleUpload : handleVerify}
+              >
+                {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
+              </button>
+            )}
             {loading && (
               <div style={{marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px'}}>
                 {loadingPhase} <div className="blinking-cursor"></div>
@@ -404,6 +491,22 @@ const headerStyle = {
   alignItems: 'center',
   backgroundColor: 'rgba(0, 243, 255, 0.05)',
   letterSpacing: '1px'
+};
+
+const connectWalletBtnStyle = {
+  padding: '1rem 2rem',
+  background: 'rgba(246, 133, 27, 0.1)', // MetaMask orange tint
+  border: '2px solid #f6851b',
+  color: '#f6851b',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  fontWeight: 'bold',
+  fontSize: '1.2rem',
+  letterSpacing: '2px',
+  textShadow: '0 0 8px #f6851b',
+  boxShadow: '0 0 15px rgba(246, 133, 27, 0.3)',
+  transition: 'all 0.3s',
+  borderRadius: '4px'
 };
 
 const btnGroupStyle = {
