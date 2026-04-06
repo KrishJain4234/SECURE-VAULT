@@ -103,8 +103,10 @@ app.post('/upload', upload.single('document'), async (req, res) => {
 
             if (!text) {
                 console.log("[Upload] Triggering Python OCR processor...");
+                const venvPythonPath = _path.join(__dirname, 'venv', process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'python.exe' : 'python');
+                const localPythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : (process.platform === 'win32' ? 'python' : 'python3');
                 const scriptPath = _path.join(__dirname, 'ocr_processor.py');
-                const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
+                const { stdout } = await execPromise(`"${localPythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
                 try {
                     const parsedResult = JSON.parse(stdout.trim());
                     if (parsedResult.error) throw new Error(parsedResult.error);
@@ -196,8 +198,10 @@ app.post('/verify', upload.single('document'), async (req, res) => {
             }
 
             if (!text) {
+                const venvPythonPath = _path.join(__dirname, 'venv', process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'python.exe' : 'python');
+                const localPythonExecutable = fs.existsSync(venvPythonPath) ? venvPythonPath : (process.platform === 'win32' ? 'python' : 'python3');
                 const scriptPath = _path.join(__dirname, 'ocr_processor.py');
-                const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
+                const { stdout } = await execPromise(`"${localPythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
                 try {
                     const parsedResult = JSON.parse(stdout.trim());
                     if (parsedResult.error) throw new Error(parsedResult.error);
