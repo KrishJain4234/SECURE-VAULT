@@ -6,7 +6,9 @@ const _path = require('path');
 const cors = require('cors');
 const QRCode = require('qrcode');
 const Tesseract = require('tesseract.js');
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
+
+const SECRET_KEY = "my_super_secure_key";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +56,13 @@ const calculateHash = (filePath) => {
     });
 };
 
+const generateSignature = (hash) => {
+    return crypto
+        .createHmac("sha256", SECRET_KEY)
+        .update(hash)
+        .digest("hex");
+};
+
 app.post('/upload', upload.single('document'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -61,6 +70,15 @@ app.post('/upload', upload.single('document'), async (req, res) => {
         const filePath = req.file.path;
         const fileHash = await calculateHash(filePath);
         const fileId = crypto.randomUUID();
+        const username = req.body.username || "Anonymous";
+
+        // 🔥 Generate signature
+        const signature = generateSignature(fileHash);
+
+        // 🔥 Blockchain linking
+        const lastBlock = Object.values(blockchainStorage).slice(-1)[0];
+        const previousHash = lastBlock ? lastBlock.hash : "GENESIS";
+        const blockNumber = Object.keys(blockchainStorage).length + 1;
 
         // Optional text extraction Integration
         let keyFields = [];
@@ -104,7 +122,11 @@ app.post('/upload', upload.single('document'), async (req, res) => {
         blockchainStorage[fileId] = {
             id: fileId,
             hash: fileHash,
+            signature: signature, // 🔥 NEW
+            previousHash: previousHash, // 🔥 NEW
+            blockNumber: blockNumber, // 🔥 NEW
             filename: req.file.originalname,
+            username: username,
             keyFields: keyFields,
             normalizedText: req.normalizedText || "",
             timestamp: new Date().toISOString()
@@ -127,10 +149,13 @@ app.post('/verify', upload.single('document'), async (req, res) => {
     try {
         const filePath = req.file.path;
         const currentHash = await calculateHash(filePath);
+        const newSignature = generateSignature(currentHash);
 
         // Find the record matching the hash
         const storedRecs = Object.values(blockchainStorage);
-        const exactMatch = storedRecs.find(p => p.hash === currentHash);
+        const exactMatch = storedRecs.find(
+            p => p.hash === currentHash && p.signature === newSignature
+        );
 
         if (exactMatch) {
             fs.unlinkSync(filePath); // Cleanup
@@ -250,11 +275,23 @@ app.get('/info', (req, res) => {
      res.json({
          status: "Blockchain Record",
          hash: record.hash,
+         blockNumber: record.blockNumber,
+         previousHash: record.previousHash,
          timestamp: record.timestamp,
          filename: record.filename || '',
          keyFields: record.keyFields || [],
          normalizedText: record.normalizedText || ''
      });
+});
+
+app.get('/ledger/:username', (req, res) => {
+    const { username } = req.params;
+
+    const userDocs = Object.values(blockchainStorage).filter(
+        doc => doc.username === username
+    );
+
+    res.json(userDocs);
 });
 
 app.listen(PORT, () => console.log(`Blockchain prototype API running on http://localhost:${PORT}`));

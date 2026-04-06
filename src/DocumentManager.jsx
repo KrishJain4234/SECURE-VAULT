@@ -12,6 +12,9 @@ function DocumentManager({ mode }) {
   }, [activeTab]);
 
   const [file, setFile] = useState(null);
+  const [username, setUsername] = useState("");
+  const [ledger, setLedger] = useState([]);
+  const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(''); // for micro-animations
   const [result, setResult] = useState(null);
@@ -40,12 +43,23 @@ function DocumentManager({ mode }) {
   }, [loading]);
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setStatusText(`FILE LOADED: ${e.target.files[0].name.toUpperCase()}`);
-      setResult(null);
-    }
+  if (e.target.files && e.target.files[0]) {
+    const selectedFile = e.target.files[0];
+
+    setFile(selectedFile);
+    setStatusText(`FILE LOADED: ${selectedFile.name.toUpperCase()}`);
+    setResult(null);
+
+    // 🔥 Preview generation
+    const fileURL = URL.createObjectURL(selectedFile);
+    setPreview(fileURL);
+  }
+};
+  useEffect(() => {
+  return () => {
+    if (preview) URL.revokeObjectURL(preview);
   };
+}, [preview]);
 
   const handleUpload = async () => {
     if (!file) {
@@ -58,6 +72,7 @@ function DocumentManager({ mode }) {
     
     const formData = new FormData();
     formData.append('document', file);
+    formData.append('username', username);
 
     try {
       const res = await fetch('http://localhost:5000/upload', {
@@ -133,6 +148,17 @@ function DocumentManager({ mode }) {
     }
   };
 
+  const fetchLedger = async () => {
+    if (!username) {
+      alert("Enter username first");
+      return;
+    }
+    const res = await fetch(`http://localhost:5000/ledger/${username}`);
+    const data = await res.json();
+    console.log("Ledger:", data);
+    setLedger(data);
+  };
+
   return (
     <>
       <style>{`
@@ -182,6 +208,31 @@ function DocumentManager({ mode }) {
           
           {/* UPLOAD / SELECT SECTION */}
           <div style={inputSectionStyle}>
+             <input
+               type="text"
+               placeholder="Enter exact username (case-sensitive)"
+               value={username}
+               onChange={(e) => setUsername(e.target.value)}
+               style={{
+                 width: '80%',
+                 padding: '12px',
+                 marginBottom: '1.5rem',
+                 background: 'transparent',
+                 border: '2px solid #00f3ff',
+                 color: '#00f3ff',
+                 outline: 'none',
+                 fontFamily: 'monospace',
+                 letterSpacing: '2px',
+                 boxShadow: '0 0 10px rgba(0,243,255,0.6)',
+                 transition: 'all 0.3s ease'
+               }}
+               onFocus={(e) => {
+                 e.target.style.boxShadow = '0 0 20px rgba(0,243,255,1)';
+               }}
+               onBlur={(e) => {
+                 e.target.style.boxShadow = '0 0 10px rgba(0,243,255,0.6)';
+               }}
+             />
              <input 
                type="file" 
                ref={fileInputRef} 
@@ -198,6 +249,53 @@ function DocumentManager({ mode }) {
                </div>
              )}
           </div>
+          {preview && (
+  <div style={{
+    marginTop: '1.5rem',
+    padding: '1rem',
+    border: '1px solid rgba(0, 243, 255, 0.3)',
+    borderRadius: '8px',
+    background: 'rgba(0,0,0,0.6)'
+  }}>
+    <p style={{ 
+      color: 'var(--neon-blue)', 
+      marginBottom: '10px',
+      textShadow: '0 0 8px var(--neon-blue)'
+    }}>
+      FILE PREVIEW:
+    </p>
+
+    {/* IMAGE PREVIEW */}
+    {file?.type.startsWith("image") && (
+      <img
+        src={preview}
+        alt="preview"
+        style={{
+          width: '100%',
+          maxHeight: '300px',
+          objectFit: 'contain',
+          borderRadius: '6px',
+          boxShadow: '0 0 10px rgba(0,243,255,0.5)'
+        }}
+      />
+    )}
+
+    {/* PDF PREVIEW */}
+    {file?.type === "application/pdf" && (
+      <iframe
+        src={preview}
+        title="PDF Preview"
+        width="100%"
+        height="400px"
+        style={{
+          border: '1px solid #00f3ff',
+          borderRadius: '6px',
+          boxShadow: '0 0 10px rgba(0,243,255,0.5)'
+        }}
+      />
+    )}
+  </div>
+)}
 
           <div style={dividerStyle}></div>
 
@@ -210,6 +308,35 @@ function DocumentManager({ mode }) {
               onClick={activeTab === 'upload' ? handleUpload : handleVerify}
             >
               {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
+            </button>
+            <br />
+            <button
+              onClick={fetchLedger}
+              style={{
+                marginTop: '1rem',
+                padding: '12px 25px',
+                background: 'transparent',
+                border: '2px solid #00f3ff',
+                color: '#00f3ff',
+                fontFamily: 'monospace',
+                letterSpacing: '2px',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                boxShadow: '0 0 10px rgba(0,243,255,0.6)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#00f3ff';
+                e.target.style.color = '#000';
+                e.target.style.boxShadow = '0 0 20px #00f3ff';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'transparent';
+                e.target.style.color = '#00f3ff';
+                e.target.style.boxShadow = '0 0 10px rgba(0,243,255,0.6)';
+              }}
+            >
+              VIEW MY DOCUMENTS
             </button>
             {loading && (
               <div style={{marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px'}}>
@@ -375,6 +502,28 @@ function DocumentManager({ mode }) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {ledger.length > 0 && (
+            <div style={{
+              marginTop: '2rem',
+              padding: '1rem',
+              border: '1px solid #00f3ff'
+            }}>
+              <h3 style={{ color: '#00f3ff' }}>YOUR DOCUMENTS</h3>
+
+              {ledger.map((doc) => (
+                <div key={doc.id} style={{
+                  padding: '10px',
+                  borderBottom: '1px solid #333'
+                }}>
+                  <p><strong>{doc.filename}</strong></p>
+                  <p>User: {doc.username}</p>
+                  <p>ID: {doc.id}</p>
+                  <p>{new Date(doc.timestamp).toLocaleString()}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
