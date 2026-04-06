@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 // Predefined list of authorized government officials (simulated)
 // For testing, users should add their MetaMask address here
 const AUTHORIZED_WALLETS = [
+  "0xa029D9F1F06244745aD4DacD8C210848116e66e8", // User authorized address
   "0x123...",
   "0xABC...",
   "0x1234567890123456789012345678901234567890", // dummy
@@ -55,18 +56,36 @@ function DocumentManager({ mode }) {
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
+        setStatusText("WAITING FOR WALLET APPROVAL...");
+
+        // 1. Force explicit permissions (forces popup even if already connected)
+        await window.ethereum.request({
+          method: 'wallet_requestPermissions',
+          params: [{ eth_accounts: {} }]
+        });
+
+        // 2. Request accounts (now guaranteed to have interactive permission)
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const account = accounts[0];
-        setWalletAddress(account);
         
-        // Simulate authorization logic
+        setStatusText("SIGNATURE REQUIRED...");
+
+        // 3. Force user confirmation via signature
+        await window.ethereum.request({
+          method: 'personal_sign',
+          params: ["SecureVault authentication request", account]
+        });
+
+        // If signature succeeds, proceed
+        setWalletAddress(account);
+        setStatusText("WALLET CONNECTED SUCCESSFULLY");
+        
+        // Check authorization logic
         const isAuth = AUTHORIZED_WALLETS.some(w => w.toLowerCase() === account.toLowerCase());
         setIsAuthorized(isAuth);
         
-        if (isAuth) {
-          setStatusText(`WALLET CONNECTED. AUTHORIZED.`);
-        } else {
-          setStatusText(`ERROR: UNAUTHORIZED ISSUER`);
+        if (!isAuth) {
+          setTimeout(() => setStatusText(`ERROR: UNAUTHORIZED ISSUER`), 1500);
         }
       } catch (error) {
         console.error(error);
@@ -77,11 +96,7 @@ function DocumentManager({ mode }) {
         }
       }
     } else {
-      // Fallback for demo purposes if MetaMask is not installed
-      const demoAccount = AUTHORIZED_WALLETS[0] || "0x1234567890123456789012345678901234567890";
-      setWalletAddress(demoAccount);
-      setIsAuthorized(true); // Auto-authorize for the demo flow
-      setStatusText(`[SIMULATED] WALLET CONNECTED.`);
+      setStatusText("ERROR: METAMASK NOT INSTALLED");
     }
   };
 
