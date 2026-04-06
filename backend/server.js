@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const _path = require('path');
 const cors = require('cors');
-const QRCode = require('qrcode');
+
 const os = require('os');
 const pythonExecutable = os.platform() === 'win32' 
     ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe') 
@@ -270,23 +270,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
     }
 });
 
-app.get('/generate-qr', async (req, res) => {
-    const { fileId } = req.query;
 
-    if (!fileId || !blockchainStorage[fileId]) {
-        return res.status(404).json({ error: 'File ID not found in simulated blockchain' });
-    }
-
-    try {
-        // Pointing to a generic dashboard or verification URL
-        const verifyUrl = `${req.protocol}://${req.get('host')}/info?fileId=${fileId}`;
-        const qrCodeImage = await QRCode.toDataURL(verifyUrl);
-
-        res.send(`<img src="${qrCodeImage}" alt="QR Code" />`);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 app.get('/info', (req, res) => {
     const record = blockchainStorage[req.query.fileId];

@@ -1,8 +1,8 @@
 export default function Navbar({ currentPage, setCurrentPage }) {
   const navItems = [
     { id: 'home', label: 'HOME' },
-    { id: 'upload', label: 'UPLOAD DOCUMENT' },
-    { id: 'verify', label: 'VERIFY DOCUMENT' },
+    { id: 'upload', label: 'UPLOAD FILE' },
+    { id: 'verify', label: 'VERIFY FILE' },
     { id: 'how-it-works', label: 'HOW IT WORKS' },
     { id: 'features', label: 'FEATURES' },
   ];

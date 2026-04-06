@@ -7,7 +7,7 @@ This is a dynamic, immersive cyberpunk landing page built with React and Vite.
 A decentralized application for secure document storage using blockchain and IPFS.
 
 ### Features
-- Upload documents to IPFS
+- Upload File to IPFS
 - Store document hashes on Ethereum blockchain
 - Verify document authenticity
 - OCR text extraction from images

@@ -2,7 +2,7 @@ import { Upload, Hash, Link as LinkIcon, ScanText, ShieldCheck, FileSearch, Arro
 import './index.css';
 
 const STEPS = [
-  { id: 1, title: 'Upload Document', icon: Upload },
+  { id: 1, title: 'Upload File', icon: Upload },
   { id: 2, title: 'Generate Hash', icon: Hash },
   { id: 3, title: 'Store on Blockchain', icon: LinkIcon },
   { id: 4, title: 'Extract OCR Data', icon: ScanText },

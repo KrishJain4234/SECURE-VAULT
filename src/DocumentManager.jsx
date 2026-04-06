@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+
 
 // Predefined list of authorized government officials (simulated)
 // For testing, users should add their MetaMask address here
@@ -346,14 +346,6 @@ function DocumentManager({ mode }) {
                     <p style={detailRowStyle}><strong style={labelStyle}>SHA-256 HASH:</strong> <span style={valueStyleHash}>{result.hash}</span></p>
                   </div>
 
-                  {result.fileId && (
-                    <div style={qrContainerStyle}>
-                      <p style={qrLabelStyle}>SCAN TO VERIFY DOCUMENT</p>
-                      <div style={qrBoxStyle}>
-                        <QRCodeSVG value={`${window.location.origin}/verify/${result.fileId}`} size={180} fgColor="#000000" bgColor="#ffffff" style={{ display: 'block' }} />
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -668,31 +660,5 @@ const valueStyleHash = {
   textShadow: '0 0 5px rgba(0, 243, 255, 0.5)'
 };
 
-const qrContainerStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  marginTop: '1rem',
-  padding: '1.5rem',
-  border: '1px solid rgba(0, 243, 255, 0.3)',
-  borderRadius: '8px',
-  background: 'rgba(0, 0, 0, 0.5)'
-};
-
-const qrLabelStyle = {
-  color: '#fff',
-  fontWeight: 'bold',
-  letterSpacing: '2px',
-  marginBottom: '1rem',
-  textShadow: '0 0 8px var(--neon-blue)'
-};
-
-const qrBoxStyle = {
-  padding: '10px',
-  background: '#fff',
-  border: '4px solid var(--neon-blue)',
-  boxShadow: '0 0 20px var(--neon-blue)',
-  borderRadius: '8px'
-};
 
 export default DocumentManager;
