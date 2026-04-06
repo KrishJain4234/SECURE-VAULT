@@ -22,16 +22,27 @@ function DocumentManager({ mode }) {
     if (loading) {
       const phases = [
         'INITIALIZING...',
-        'ANALYZING DOCUMENT...',
-        'GENERATING SHA-256 HASH...',
-        'STORING ON BLOCKCHAIN...',
-        'FINALIZING...'
+        'ANALYZING PRIMARY TEXT LAYER...',
+        'CALCULATING FONT CONFIDENCE...',
+        'GENERATING HASH & ANCHORING...',
+        'AWAITING NODE RESPONSE...'
       ];
       let i = 0;
       setLoadingPhase(phases[0]);
       interval = setInterval(() => {
         i++;
-        if (i < phases.length) setLoadingPhase(phases[i]);
+        if (i < phases.length) {
+            setLoadingPhase(phases[i]);
+        } else if (i === phases.length + 2) {
+            setLoadingPhase('LOW CONFIDENCE DETECTED: ROUTING TO HEAVY PYTHON LLM...');
+        } else if (i === phases.length + 6) {
+            setLoadingPhase('OCR.SPACE IMAGE EXTRACTION IN PROGRESS...');
+        } else if (i === phases.length + 15) {
+            setLoadingPhase('QWEN3 NEURAL NET: CORRECTING SEMANTIC TYPOS...');
+        } else if (i > phases.length + 25) {
+            const dots = '.'.repeat((i % 3) + 1);
+            setLoadingPhase('HEAVY LLM ANALYSIS' + dots);
+        }
       }, 600);
     } else {
       setLoadingPhase('');

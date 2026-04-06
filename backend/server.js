@@ -71,7 +71,7 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             console.log(`[Upload] Extracting text for ${req.file.originalname}...`);
             let text = '';
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
-            
+
             if (isPDF) {
                 try {
                     const dataBuffer = fs.readFileSync(filePath);
@@ -96,7 +96,7 @@ app.post('/upload', upload.single('document'), async (req, res) => {
                     console.log("[Upload] Low confidence. Routing to heavy handwritten OCR pipeline.");
                 }
             }
-            
+
             if (!text) {
                 console.log("[Upload] Triggering Python OCR processor...");
                 const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
@@ -111,17 +111,17 @@ app.post('/upload', upload.single('document'), async (req, res) => {
                     throw jsError;
                 }
             }
-            
+
             // Extract all meaningful words to compare entire document contents
             const allWords = text.toLowerCase()
                 .replace(/[^\w\s-]/gi, '') // remove punctuation except dashes
                 .split(/\s+/);
-                
+
             // Deduplicate and filter out tiny filler words (e.g., 'a', 'to', 'the')
-            keyFields = [...new Set(allWords)].filter(k => k.length > 3);
-                 
+            keyFields = [...new Set(allWords)].filter(k => k.length > 4);
+
             req.normalizedText = text.replace(/\s+/g, '').toLowerCase();
-                 
+
             console.log(`[Upload] Extracted Key Fields:`, keyFields);
         } catch (error) {
             console.error('[Upload] OCR failed (likely not an image):', error.message);
@@ -174,7 +174,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
         try {
             let text = '';
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
-            
+
             if (isPDF) {
                 try {
                     const dataBuffer = fs.readFileSync(filePath);
@@ -191,7 +191,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                     text = result.data.text;
                 }
             }
-            
+
             if (!text) {
                 const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
                 const scriptPath = _path.join(__dirname, 'ocr_processor.py');
@@ -210,7 +210,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
         } catch (error) {
             console.error('[Verify] Fallback text extraction failed:', error.message);
         }
-        
+
         fs.unlinkSync(filePath); // Cleanup
 
         let isVerified = false;
@@ -226,9 +226,9 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                             matchCount++;
                         }
                     }
-                    
+
                     const ratio = matchCount / rec.keyFields.length;
-                    
+
                     if (ratio === 1) {
                         isVerified = true;
                         matchedId = rec.id;
@@ -239,7 +239,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                         if (!matchedId) matchedId = rec.id;
                     }
                 }
-                
+
                 // Compare overall normalized text for small text differences
                 if (rec.normalizedText && Math.abs(rec.normalizedText.length - currentText.length) < 50) {
                     isValidMinor = true;
@@ -276,7 +276,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
 
 app.get('/generate-qr', async (req, res) => {
     const { fileId } = req.query;
-    
+
     if (!fileId || !blockchainStorage[fileId]) {
         return res.status(404).json({ error: 'File ID not found in simulated blockchain' });
     }
@@ -293,16 +293,16 @@ app.get('/generate-qr', async (req, res) => {
 });
 
 app.get('/info', (req, res) => {
-     const record = blockchainStorage[req.query.fileId];
-     if (!record) return res.status(404).json({ error: 'Not found' });
-     res.json({
-         status: "Blockchain Record",
-         hash: record.hash,
-         timestamp: record.timestamp,
-         filename: record.filename || '',
-         keyFields: record.keyFields || [],
-         normalizedText: record.normalizedText || ''
-     });
+    const record = blockchainStorage[req.query.fileId];
+    if (!record) return res.status(404).json({ error: 'Not found' });
+    res.json({
+        status: "Blockchain Record",
+        hash: record.hash,
+        timestamp: record.timestamp,
+        filename: record.filename || '',
+        keyFields: record.keyFields || [],
+        normalizedText: record.normalizedText || ''
+    });
 });
 
 app.listen(PORT, () => console.log(`Blockchain prototype API running on http://localhost:${PORT}`));
