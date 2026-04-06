@@ -2,20 +2,18 @@
 
 This is a dynamic, immersive cyberpunk landing page built with React and Vite.
 
-## eVault - Secure Document Storage
+## eVault - Secure File Storage
 
-A decentralized application for secure document storage using blockchain and IPFS.
+A decentralized application for secure file/document storage using blockchain and IPFS.
 
 ### Features
-- Upload File to IPFS
-- Store document hashes on Ethereum blockchain
-- Verify document authenticity
+- Upload file to IPFS
+- Store file hashes on Ethereum blockchain
+- Verify file authenticity
 - OCR text extraction from images
-- Government document management
 
 ### Setup
-1. Install dependencies: `npm install`
-2. Set up environment variables in `.env.local`
-3. Compile smart contracts: `npm run compile`
-4. Deploy contracts: `npm run deploy`
-5. Run the application: `npm run dev`
+1. Install dependencies in root: `npm install`
+2. Start the application: `npm run dev`
+3. Install dependencies in backend dir: `cd backend && npm install`
+5. Run the backend: `npm start`

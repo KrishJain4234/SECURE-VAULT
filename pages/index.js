@@ -6,8 +6,8 @@ export default function Home() {
   return (
     <div className="container">
       <Head>
-        <title>eVault - Secure Document Storage</title>
-        <meta name="description" content="Secure document storage using blockchain and IPFS" />
+        <title>eVault - Secure File Storage</title>
+        <meta name="description" content="Secure File storage using blockchain and IPFS" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
