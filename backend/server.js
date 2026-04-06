@@ -236,7 +236,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
                     matchedId = rec.id;
                     console.log(`[Verify] PERFECT TEXT MATCH! 100% structural similarity.`);
                     break;
-                } else if (similarityScore >= 0.80) {
+                } else if (similarityScore >= 0.95) {
                     isValidMinor = true;
                     if (!matchedId) matchedId = rec.id;
                     console.log(`[Verify] VALID (Minor Changes): ${(similarityScore * 100).toFixed(2)}% similarity.`);
