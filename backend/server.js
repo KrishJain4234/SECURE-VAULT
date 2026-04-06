@@ -4,10 +4,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const _path = require('path');
 const cors = require('cors');
-
 const os = require('os');
-const pythonExecutable = os.platform() === 'win32' 
-    ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe') 
+const ethSigUtil = require('@metamask/eth-sig-util');
+const axios = require('axios');
+const pythonExecutable = os.platform() === 'win32'
+    ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe')
     : _path.join(__dirname, 'venv', 'bin', 'python');
 const Tesseract = require('tesseract.js');
 const stringSimilarity = require('string-similarity');
@@ -133,6 +134,68 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             console.error('[Upload] OCR failed (likely not an image):', error.message);
         }
 
+        // --- ENCRYPTION & IPFS PHASE ---
+        const encryptionPublicKey = req.body.encryptionPublicKey;
+        let ipfsCID = "none";
+        let encryptedKeyPayload = null;
+
+        if (encryptionPublicKey) {
+            console.log("[Upload] Encrypting file to user's MetaMask Public Key...");
+            // 1. Generate random AES-256 Symmetric Key
+            const aesKey = crypto.randomBytes(32);
+
+            // 2. Encrypt the file buffer with AES-GCM
+            const fileBuffer = fs.readFileSync(filePath);
+            const iv = crypto.randomBytes(12);
+            const cipher = crypto.createCipheriv('aes-256-gcm', aesKey, iv);
+            const encryptedBuffer = Buffer.concat([cipher.update(fileBuffer), cipher.final(), cipher.getAuthTag()]);
+
+            // Re-combine IV and Encrypted Payload for the frontend to decrypt
+            const finalEncryptedBlob = Buffer.concat([iv, encryptedBuffer]);
+            const encryptedFilePath = filePath + '.enc';
+            fs.writeFileSync(encryptedFilePath, finalEncryptedBlob);
+
+            // 3. Encrypt the AES key for the specific MetaMask User
+            const aesBase64 = aesKey.toString('base64');
+            encryptedKeyPayload = ethSigUtil.encrypt({
+                publicKey: encryptionPublicKey,
+                data: aesBase64,
+                version: 'x25519-xsalsa20-poly1305'
+            });
+
+            // 4. Pinata IPFS Upload
+            try {
+                const PinataFormData = require('form-data');
+                const fd = new PinataFormData();
+                fd.append('file', fs.createReadStream(encryptedFilePath));
+
+                const pinataRes = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", fd, {
+                    maxBodyLength: "Infinity",
+                    headers: {
+                        'Content-Type': `multipart/form-data; boundary=${fd._boundary}`,
+                        pinata_api_key: '10776af10530916d36df',
+                        pinata_secret_api_key: process.env.PINATA_SECRET || '24253bc92a83b5112dd662c351fd2d70d1a901b7138dc1f13f9379a889874519',
+                    }
+                });
+                ipfsCID = pinataRes.data.IpfsHash;
+                console.log(`[Upload] Pinned to Pinata IPFS: ${ipfsCID}`);
+            } catch (pinataErr) {
+                console.warn("[Upload] Pinata Upload Failed (Missing Secret?). Falling back to Mock IPFS Simulation.");
+                // Mock IPFS Simulation
+                ipfsCID = "mock_cid_" + crypto.createHash('sha256').update(finalEncryptedBlob).digest('hex').substring(0, 16);
+                const mockIpfsDir = _path.join(__dirname, 'uploads', 'ipfs');
+                if (!fs.existsSync(mockIpfsDir)) fs.mkdirSync(mockIpfsDir, { recursive: true });
+                fs.copyFileSync(encryptedFilePath, _path.join(mockIpfsDir, ipfsCID));
+            }
+
+            fs.unlinkSync(encryptedFilePath); // Cleanup temp encrypted file
+        } else {
+            console.warn("[Upload] No encryptionPublicKey provided. Document will ONLY be hashed.");
+        }
+
+        // Zero-Knowledge Notary: We DO NOT store the clear-text document.
+        fs.unlinkSync(filePath);
+
         // Save to our simulated blockchain structure
         blockchainStorage[fileId] = {
             id: fileId,
@@ -140,17 +203,41 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             filename: req.file.originalname,
             keyFields: keyFields,
             normalizedText: req.normalizedText || "",
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            ipfsCID: ipfsCID,
+            encryptedKeyPayload: encryptedKeyPayload
         };
         saveStorage();
 
         res.json({
-            message: 'File successfully uploaded and anchored',
+            message: 'File successfully notarized and optionally encrypted',
             fileId,
-            hash: fileHash
+            hash: fileHash,
+            ipfsCID
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/mock-ipfs/:cid', async (req, res) => {
+    const cid = req.params.cid;
+    const mockFilePath = _path.join(__dirname, 'uploads', 'ipfs', cid);
+
+    if (fs.existsSync(mockFilePath)) {
+        return res.sendFile(mockFilePath);
+    }
+
+    // If not found locally, we must have successfully uploaded it to IPFS!
+    // We act as a proxy gateway to avoid the frontend dealing with CORS/broken public gateways
+    try {
+        const ipfsProxyRes = await axios.get(`https://gateway.pinata.cloud/ipfs/${cid}`, {
+            responseType: 'stream'
+        });
+        ipfsProxyRes.data.pipe(res);
+    } catch (err) {
+        console.error("IPFS Proxy Fetch Error:", err.message);
+        res.status(404).json({ error: 'IPFS CID not found locally or on gateway.' });
     }
 });
 
@@ -227,7 +314,7 @@ app.post('/verify', upload.single('document'), async (req, res) => {
         if (currentText.length > 0) {
             for (const rec of storedRecs) {
                 if (!rec.normalizedText) continue;
-                
+
                 // Compare overall normalized text for structural alignment (0.0 to 1.0)
                 const similarityScore = stringSimilarity.compareTwoStrings(rec.normalizedText, currentText);
 
@@ -281,7 +368,9 @@ app.get('/info', (req, res) => {
         timestamp: record.timestamp,
         filename: record.filename || '',
         keyFields: record.keyFields || [],
-        normalizedText: record.normalizedText || ''
+        normalizedText: record.normalizedText || '',
+        ipfsCID: record.ipfsCID || 'none',
+        encryptedKeyPayload: record.encryptedKeyPayload || null
     });
 });
 

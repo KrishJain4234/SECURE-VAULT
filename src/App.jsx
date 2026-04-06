@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import './index.css'
 import HowItWorks from './HowItWorks'
 import DocumentManager from './DocumentManager'
+import DownloadDecrypt from './DownloadDecrypt'
 import Navbar from './Navbar'
 import Features from './Features'
 import { Routes, Route } from 'react-router-dom'
@@ -27,12 +28,12 @@ function App() {
       delay: `${Math.random() * 5}s`,
       duration: `${3 + Math.random() * 7}s`,
     }))
-    
+
     setChars(generateChars())
 
     // Intermittently scramble some characters
     const charInterval = setInterval(() => {
-      setChars(prevChars => prevChars.map(c => 
+      setChars(prevChars => prevChars.map(c =>
         Math.random() > 0.8 ? { ...c, char: CHARS[Math.floor(Math.random() * CHARS.length)] } : c
       ))
     }, 500)
@@ -77,7 +78,7 @@ function App() {
   return (
     <>
       <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-      
+
       <div className="grid-container">
         <div className="grid-bg"></div>
       </div>
@@ -96,7 +97,7 @@ function App() {
 
       {chars.map(c => (
         <div key={`char-${c.id}`} className="floating-char" style={{
-          top: c.top, left: c.left, 
+          top: c.top, left: c.left,
           animationDelay: c.delay,
           animationDuration: c.duration,
         }}>
@@ -121,7 +122,7 @@ function App() {
               {currentPage === 'home' && (
                 <div className="container">
                   <h1 className="hero-title" data-text="SECURE-VAULT">SECURE-VAULT</h1>
-                  
+
                   <div className="hero-tag">
                     <span>Tamper-Proof Documents</span>
                     <span className="bullet">•</span>
@@ -144,12 +145,14 @@ function App() {
               )}
 
               {currentPage === 'how-it-works' && <HowItWorks />}
-              
+
               {currentPage === 'features' && <Features />}
 
               {currentPage === 'upload' && <DocumentManager mode="upload" />}
-              
+
               {currentPage === 'verify' && <DocumentManager mode="verify" />}
+
+              {currentPage === 'download' && <DownloadDecrypt />}
             </>
           } />
           <Route path="/verify/:documentId" element={<VerificationPage />} />

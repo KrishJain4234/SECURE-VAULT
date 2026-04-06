@@ -3,6 +3,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
     { id: 'home', label: 'HOME' },
     { id: 'upload', label: 'UPLOAD FILE' },
     { id: 'verify', label: 'VERIFY FILE' },
+    { id: 'download', label: 'FETCH & DECRYPT' },
     { id: 'how-it-works', label: 'HOW IT WORKS' },
     { id: 'features', label: 'FEATURES' },
   ];
@@ -16,14 +17,14 @@ export default function Navbar({ currentPage, setCurrentPage }) {
         }
       `}</style>
       <div style={logoStyle}>
-        <span style={{color: 'var(--neon-pink)'}}>[</span> 
-        SECURE-VAULT 
-        <span style={{color: 'var(--neon-pink)'}}>]</span>
+        <span style={{ color: 'var(--neon-pink)' }}>[</span>
+        SECURE-VAULT
+        <span style={{ color: 'var(--neon-pink)' }}>]</span>
       </div>
       <ul style={navStyle}>
         {navItems.map(item => (
-          <li 
-            key={item.id} 
+          <li
+            key={item.id}
             className="nav-item-hover"
             style={currentPage === item.id ? activeNavItemStyle : navItemStyle}
             onClick={() => setCurrentPage(item.id)}

@@ -1,4 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { Buffer } from 'buffer';
+
+// Vite/Browser Polyfill for Buffer
+if (typeof window !== 'undefined' && !window.Buffer) {
+  window.Buffer = Buffer;
+}
 
 
 // Predefined list of authorized government officials (simulated)
@@ -14,7 +20,7 @@ const AUTHORIZED_WALLETS = [
 function DocumentManager({ mode }) {
   const activeTab = mode || 'upload'; // controlled externally now
   const [statusText, setStatusText] = useState(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
-  
+
   // Wallet state
   const [walletAddress, setWalletAddress] = useState("");
   const [isAuthorized, setIsAuthorized] = useState(null);
@@ -79,7 +85,7 @@ function DocumentManager({ mode }) {
         // 2. Request accounts (now guaranteed to have interactive permission)
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const account = accounts[0];
-        
+
         setStatusText("SIGNATURE REQUIRED...");
 
         // 3. Force user confirmation via signature
@@ -91,11 +97,11 @@ function DocumentManager({ mode }) {
         // If signature succeeds, proceed
         setWalletAddress(account);
         setStatusText("WALLET CONNECTED SUCCESSFULLY");
-        
+
         // Check authorization logic
         const isAuth = AUTHORIZED_WALLETS.some(w => w.toLowerCase() === account.toLowerCase());
         setIsAuthorized(isAuth);
-        
+
         if (!isAuth) {
           setTimeout(() => setStatusText(`ERROR: UNAUTHORIZED ISSUER`), 1500);
         }
@@ -127,11 +133,29 @@ function DocumentManager({ mode }) {
     }
 
     setLoading(true);
-    setStatusText('COMMUNICATING WITH NODE...');
+    setStatusText('REQUESTING ENCRYPTION KEY FROM METAMASK...');
+
+    let encryptionPublicKey = "";
+    try {
+      encryptionPublicKey = await window.ethereum.request({
+        method: 'eth_getEncryptionPublicKey',
+        params: [walletAddress],
+      });
+      console.log("Got Encryption Public Key:", encryptionPublicKey);
+    } catch (e) {
+      console.error("MetaMask Encryption Key Error:", e);
+      setStatusText('ERROR: ETH_GETENCRYPTIONPUBLICKEY REJECTED');
+      setLoading(false);
+      return;
+    }
+
+    setStatusText('COMMUNICATING WITH NODE (UPLOADING & PINNING)...');
+    setLoadingPhase('COMMUNICATING WITH NODE (UPLOADING & PINNING)...');
 
     const formData = new FormData();
     formData.append('document', file);
     formData.append('issuerId', walletAddress); // Attached issuer ID
+    formData.append('encryptionPublicKey', encryptionPublicKey);
 
     try {
       const res = await fetch('http://localhost:5000/upload', {
@@ -158,7 +182,91 @@ function DocumentManager({ mode }) {
         setStatusText(`ERROR: ${data.error?.toUpperCase() || 'UPLOAD FAILED'}`);
       }
     } catch (err) {
-      setStatusText('ERROR: CONNECTION TO NODE FAILED');
+      setStatusText(`ERROR: ${err.message.toUpperCase()}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadSecureDocument = async () => {
+    if (!result || !result.fileId || !result.ipfsCID) return;
+    setStatusText("FETCHING SECURE ENCRYPTED DOCUMENT...");
+    setLoading(true);
+    try {
+      // 1. Fetch info to get the encrypted key payload
+      const infoRes = await fetch(`http://localhost:5000/info?fileId=${result.fileId}`);
+      const infoData = await infoRes.json();
+      if (!infoData || !infoData.encryptedKeyPayload) {
+        setStatusText("ERROR: NO ENCRYPTION PAYLOAD FOUND");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Ask MetaMask to decrypt the AES key
+      setStatusText("METAMASK: WAITING FOR DECRYPTION APPROVAL...");
+
+      const payloadHex = window.Buffer.from(
+        JSON.stringify(infoData.encryptedKeyPayload),
+        'utf8'
+      ).toString('hex');
+
+      console.log("Requesting eth_decrypt for payload:", payloadHex);
+
+      const decryptedAesBase64 = await window.ethereum.request({
+        method: 'eth_decrypt',
+        params: [`0x${payloadHex}`, walletAddress],
+      });
+
+      if (!decryptedAesBase64) throw new Error("MetaMask returned empty decryption result.");
+      console.log("MetaMask decryption successful.");
+
+      // 3. Fetch the encrypted IPFS blob
+      setStatusText("IPFS: DOWNLOADING ENCRYPTED BLOB...");
+      const mockIpfsUrl = `http://localhost:5000/mock-ipfs/${result.ipfsCID}`;
+      const blobRes = await fetch(mockIpfsUrl);
+      if (!blobRes.ok) throw new Error("Failed to fetch IPFS blob from backend server.");
+      const encryptedBlobArrayBuffer = await blobRes.arrayBuffer();
+
+      // 4. Decrypt the blob manually with SubleCrypto
+      setStatusText("VAULT: DECRYPTING IN-MEMORY...");
+      const finalBuffer = window.Buffer.from(encryptedBlobArrayBuffer);
+      const iv = finalBuffer.slice(0, 12);
+      const encryptedData = finalBuffer.slice(12);
+
+      console.log("IV Extracted:", window.Buffer.from(iv).toString('hex'));
+
+      // Convert AES base64 back to CryptoKey
+      const rawAesKey = window.Buffer.from(decryptedAesBase64.trim(), 'base64');
+      const cryptoKey = await window.crypto.subtle.importKey(
+        "raw",
+        rawAesKey,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+      );
+
+      const decryptedMimeBuffer = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: new Uint8Array(iv) },
+        cryptoKey,
+        new Uint8Array(encryptedData)
+      );
+
+      // Trigger download
+      setStatusText("VAULT: TRIGGERING DOWNLOAD...");
+      const decBlob = new window.Blob([decryptedMimeBuffer], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(decBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `DECRYPTED_${result.fileId}_${new Date().getTime()}.pdf`;
+      document.body.appendChild(a); // Append to body for compatibility
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      setStatusText("DOCUMENT DECRYPTED AND SAVED SUCCESSFULLY.");
+    } catch (err) {
+      console.error("Secure Download Error:", err);
+      setStatusText("ERROR: " + (err.message || "DECRYPTION FAILED"));
     } finally {
       setLoading(false);
     }
@@ -259,7 +367,7 @@ function DocumentManager({ mode }) {
 
         {/* MAIN BODY */}
         <div className="terminal-body" style={bodyStyle}>
-          
+
           {/* WALLET CONNECT SECTION (UPLOAD ONLY) */}
           {activeTab === 'upload' && (
             <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
@@ -277,8 +385,8 @@ function DocumentManager({ mode }) {
                   boxShadow: `0 0 15px ${isAuthorized ? 'rgba(57, 255, 20, 0.3)' : 'rgba(255, 0, 60, 0.3)'}`
                 }}>
                   <p style={{ margin: 0, color: isAuthorized ? '#39ff14' : '#ff003c', fontWeight: 'bold', letterSpacing: '1px' }}>
-                    {isAuthorized 
-                      ? `WALLET CONNECTED: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}` 
+                    {isAuthorized
+                      ? `WALLET CONNECTED: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}`
                       : `UNAUTHORIZED WALLET: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}`
                     }
                   </p>
@@ -314,9 +422,9 @@ function DocumentManager({ mode }) {
           <div style={dividerStyle}></div>
 
           {/* ACTION SECTION */}
-          <div style={{marginTop: '2rem', textAlign: 'center'}}>
+          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
             {!(activeTab === 'upload' && (!walletAddress || !isAuthorized)) && (
-              <button 
+              <button
                 className="upload-btn-hover"
                 style={actionBtnStyle}
                 disabled={loading}
@@ -344,8 +452,19 @@ function DocumentManager({ mode }) {
                   <div style={resultDetailsBox}>
                     <p style={detailRowStyle}><strong style={labelStyle}>FILE ID:</strong> <span style={valueStyle}>{result.fileId}</span></p>
                     <p style={detailRowStyle}><strong style={labelStyle}>SHA-256 HASH:</strong> <span style={valueStyleHash}>{result.hash}</span></p>
+                    {result.ipfsCID && result.ipfsCID !== "none" && (
+                      <p style={detailRowStyle}><strong style={labelStyle}>IPFS CID:</strong> <span style={valueStyleHash}>{result.ipfsCID}</span></p>
+                    )}
                   </div>
 
+                  {result.ipfsCID && result.ipfsCID !== "none" && (
+                    <button
+                      onClick={handleDownloadSecureDocument}
+                      style={{ ...actionBtnStyle, marginTop: '20px', width: '100%' }}
+                    >
+                      &#128275; DECRYPT & DOWNLOAD
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
