@@ -5,6 +5,10 @@ const fs = require('fs');
 const _path = require('path');
 const cors = require('cors');
 const QRCode = require('qrcode');
+const os = require('os');
+const pythonExecutable = os.platform() === 'win32' 
+    ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe') 
+    : _path.join(__dirname, 'venv', 'bin', 'python');
 const Tesseract = require('tesseract.js');
 const { PDFParse } = require('pdf-parse');
 const { exec } = require('child_process');
@@ -99,7 +103,6 @@ app.post('/upload', upload.single('document'), async (req, res) => {
 
             if (!text) {
                 console.log("[Upload] Triggering Python OCR processor...");
-                const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
                 const scriptPath = _path.join(__dirname, 'ocr_processor.py');
                 const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
                 try {
@@ -193,7 +196,6 @@ app.post('/verify', upload.single('document'), async (req, res) => {
             }
 
             if (!text) {
-                const pythonExecutable = _path.join(__dirname, 'venv', 'bin', 'python');
                 const scriptPath = _path.join(__dirname, 'ocr_processor.py');
                 const { stdout } = await execPromise(`"${pythonExecutable}" "${scriptPath}" "${filePath}"`, { maxBuffer: 1024 * 1024 * 10 });
                 try {
