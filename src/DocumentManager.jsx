@@ -6,9 +6,9 @@ function DocumentManager({ mode }) {
   const [statusText, setStatusText] = useState(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
   // Ensure status text resets when mode changes
   useEffect(() => {
-     setStatusText(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
-     setResult(null);
-     setFile(null);
+    setStatusText(activeTab === 'upload' ? 'AWAITING UPLOAD...' : 'AWAITING VERIFICATION...');
+    setResult(null);
+    setFile(null);
   }, [activeTab]);
 
   const [file, setFile] = useState(null);
@@ -32,16 +32,16 @@ function DocumentManager({ mode }) {
       interval = setInterval(() => {
         i++;
         if (i < phases.length) {
-            setLoadingPhase(phases[i]);
+          setLoadingPhase(phases[i]);
         } else if (i === phases.length + 2) {
-            setLoadingPhase('LOW CONFIDENCE DETECTED: ROUTING TO HEAVY PYTHON LLM...');
+          setLoadingPhase('LOW CONFIDENCE DETECTED: ROUTING TO HEAVY PYTHON LLM...');
         } else if (i === phases.length + 6) {
-            setLoadingPhase('OCR.SPACE IMAGE EXTRACTION IN PROGRESS...');
+          setLoadingPhase('OCR.SPACE IMAGE EXTRACTION IN PROGRESS...');
         } else if (i === phases.length + 15) {
-            setLoadingPhase('QWEN3 NEURAL NET: CORRECTING SEMANTIC TYPOS...');
+          setLoadingPhase('QWEN3 NEURAL NET: CORRECTING SEMANTIC TYPOS...');
         } else if (i > phases.length + 25) {
-            const dots = '.'.repeat((i % 3) + 1);
-            setLoadingPhase('HEAVY LLM ANALYSIS' + dots);
+          const dots = '.'.repeat((i % 3) + 1);
+          setLoadingPhase('LLM ANALYSIS (this may take a while)' + dots);
         }
       }, 600);
     } else {
@@ -63,10 +63,10 @@ function DocumentManager({ mode }) {
       setStatusText('ERROR: NO FILE SELECTED');
       return;
     }
-    
+
     setLoading(true);
     setStatusText('COMMUNICATING WITH NODE...');
-    
+
     const formData = new FormData();
     formData.append('document', file);
 
@@ -76,18 +76,18 @@ function DocumentManager({ mode }) {
         body: formData,
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setStatusText('UPLOAD SUCCESSFUL. HASH GENERATED.');
         setResult(data);
-        
+
         // Audit Trail Update for Upload
         if (data.fileId) {
           const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
           storedAudits[data.fileId] = {
-             uploadTime: new Date().toISOString(),
-             verifyCount: 0,
-             lastVerified: null
+            uploadTime: new Date().toISOString(),
+            verifyCount: 0,
+            lastVerified: null
           };
           localStorage.setItem('documentAudits', JSON.stringify(storedAudits));
         }
@@ -106,10 +106,10 @@ function DocumentManager({ mode }) {
       setStatusText('ERROR: NO FILE SELECTED');
       return;
     }
-    
+
     setLoading(true);
     setStatusText('VERIFYING BLOCKCHAIN RECORD...');
-    
+
     const formData = new FormData();
     formData.append('document', file);
 
@@ -119,16 +119,16 @@ function DocumentManager({ mode }) {
         body: formData,
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setStatusText(`ANALYSIS COMPLETE. STATUS LOGGED.`);
         setResult(data);
-        
+
         // Audit Trail Update for Verify
         if (data.fileId) {
           const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
           if (!storedAudits[data.fileId]) {
-             storedAudits[data.fileId] = { uploadTime: "Unknown", verifyCount: 0 };
+            storedAudits[data.fileId] = { uploadTime: "Unknown", verifyCount: 0 };
           }
           storedAudits[data.fileId].lastVerified = new Date().toISOString();
           storedAudits[data.fileId].verifyCount += 1;
@@ -178,43 +178,43 @@ function DocumentManager({ mode }) {
           box-shadow: 0 0 15px rgba(255, 0, 85, 0.3) !important;
         }
       `}</style>
-      
+
       <div className="doc-manager-container" style={containerStyle}>
-        
+
         {/* HEADER */}
-        <div className="terminal-header" style={{...headerStyle, justifyContent: 'center'}}>
-          <div style={{color: 'var(--neon-pink)', textShadow: '0 0 8px var(--neon-pink)', fontSize: '1.2rem', fontWeight: 'bold'}}>
-             {statusText}
+        <div className="terminal-header" style={{ ...headerStyle, justifyContent: 'center' }}>
+          <div style={{ color: 'var(--neon-pink)', textShadow: '0 0 8px var(--neon-pink)', fontSize: '1.2rem', fontWeight: 'bold' }}>
+            {statusText}
           </div>
         </div>
 
         {/* MAIN BODY */}
         <div className="terminal-body" style={bodyStyle}>
-          
+
           {/* UPLOAD / SELECT SECTION */}
           <div style={inputSectionStyle}>
-             <input 
-               type="file" 
-               ref={fileInputRef} 
-               style={{ display: 'none' }} 
-               onChange={handleFileChange}
-             />
-             <button className="file-select-hover" style={uploadBtnStyle} onClick={() => fileInputRef.current?.click()}>
-                Select Document to Secure
-             </button>
-             {file && (
-               <div style={{marginTop: '1.5rem', color: 'var(--neon-blue)', fontSize: '1.1rem', padding: '10px', borderLeft: '4px solid var(--neon-blue)', background: 'rgba(0, 243, 255, 0.05)'}}>
-                 <span style={{color: '#fff'}}>FILE:</span> {file.name} 
-                 <span style={{color: '#aaa', marginLeft: '10px'}}>({(file.size / 1024).toFixed(2)} KB)</span>
-               </div>
-             )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <button className="file-select-hover" style={uploadBtnStyle} onClick={() => fileInputRef.current?.click()}>
+              Select Document to Secure
+            </button>
+            {file && (
+              <div style={{ marginTop: '1.5rem', color: 'var(--neon-blue)', fontSize: '1.1rem', padding: '10px', borderLeft: '4px solid var(--neon-blue)', background: 'rgba(0, 243, 255, 0.05)' }}>
+                <span style={{ color: '#fff' }}>FILE:</span> {file.name}
+                <span style={{ color: '#aaa', marginLeft: '10px' }}>({(file.size / 1024).toFixed(2)} KB)</span>
+              </div>
+            )}
           </div>
 
           <div style={dividerStyle}></div>
 
           {/* ACTION SECTION */}
-          <div style={{marginTop: '2rem', textAlign: 'center'}}>
-            <button 
+          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+            <button
               className="upload-btn-hover"
               style={actionBtnStyle}
               disabled={loading}
@@ -223,7 +223,7 @@ function DocumentManager({ mode }) {
               {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
             </button>
             {loading && (
-              <div style={{marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px'}}>
+              <div style={{ marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px' }}>
                 {loadingPhase} <div className="blinking-cursor"></div>
               </div>
             )}
@@ -233,46 +233,46 @@ function DocumentManager({ mode }) {
           {result && (
             <div style={resultStyle} className="pulse-border">
               {activeTab === 'upload' ? (
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                  <h3 style={{...successTitleStyle, color: '#39ff14', textShadow: '0 0 15px #39ff14'}}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h3 style={{ ...successTitleStyle, color: '#39ff14', textShadow: '0 0 15px #39ff14' }}>
                     &#10004; DOCUMENT SECURED SUCCESSFULLY
                   </h3>
-                  
+
                   <div style={resultDetailsBox}>
                     <p style={detailRowStyle}><strong style={labelStyle}>FILE ID:</strong> <span style={valueStyle}>{result.fileId}</span></p>
                     <p style={detailRowStyle}><strong style={labelStyle}>SHA-256 HASH:</strong> <span style={valueStyleHash}>{result.hash}</span></p>
                   </div>
-                  
+
                   {result.fileId && (
-                     <div style={qrContainerStyle}>
-                       <p style={qrLabelStyle}>SCAN TO VERIFY DOCUMENT</p>
-                       <div style={qrBoxStyle}>
-                         <QRCodeSVG value={`${window.location.origin}/verify/${result.fileId}`} size={180} fgColor="#000000" bgColor="#ffffff" style={{display: 'block'}} />
-                       </div>
-                     </div>
+                    <div style={qrContainerStyle}>
+                      <p style={qrLabelStyle}>SCAN TO VERIFY DOCUMENT</p>
+                      <div style={qrBoxStyle}>
+                        <QRCodeSVG value={`${window.location.origin}/verify/${result.fileId}`} size={180} fgColor="#000000" bgColor="#ffffff" style={{ display: 'block' }} />
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div style={{display: 'flex', flexDirection: 'column'}}>
-                   
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+
                   {result.status === 'VERIFIED' ? (
-                     <h3 style={{...successTitleStyle, color: '#39ff14', textShadow: '0 0 15px #39ff14'}}>
-                       &#10004; DOCUMENT VERIFIED SUCCESSFULLY
-                     </h3>
+                    <h3 style={{ ...successTitleStyle, color: '#39ff14', textShadow: '0 0 15px #39ff14' }}>
+                      &#10004; DOCUMENT VERIFIED SUCCESSFULLY
+                    </h3>
                   ) : result.status.includes('VALID') ? (
-                     <h3 style={{...successTitleStyle, color: '#ffaa00', textShadow: '0 0 15px #ffaa00'}}>
-                       &#9888; VALID (MINOR CHANGES)
-                     </h3>
+                    <h3 style={{ ...successTitleStyle, color: '#ffaa00', textShadow: '0 0 15px #ffaa00' }}>
+                      &#9888; VALID (MINOR CHANGES)
+                    </h3>
                   ) : (
-                     <h3 style={{...successTitleStyle, color: '#ff003c', textShadow: '0 0 15px #ff003c'}}>
-                       &#10008; ALERT: DOCUMENT TAMPERED
-                     </h3>
+                    <h3 style={{ ...successTitleStyle, color: '#ff003c', textShadow: '0 0 15px #ff003c' }}>
+                      &#10008; ALERT: DOCUMENT TAMPERED
+                    </h3>
                   )}
 
-                  <div style={{...resultDetailsBox, borderColor: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c'}}>
-                    <p style={detailRowStyle}><strong style={labelStyle}>STATUS:</strong> 
-                      <span style={{ 
-                        color: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c', 
+                  <div style={{ ...resultDetailsBox, borderColor: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c' }}>
+                    <p style={detailRowStyle}><strong style={labelStyle}>STATUS:</strong>
+                      <span style={{
+                        color: result.status === 'VERIFIED' ? '#39ff14' : result.status.includes('VALID') ? '#ffaa00' : '#ff003c',
                         fontWeight: 'bold', fontSize: '1.2rem',
                         textShadow: result.status === 'VERIFIED' ? '0 0 10px #39ff14' : result.status.includes('VALID') ? '0 0 10px #ffaa00' : '0 0 10px #ff003c'
                       }}>
@@ -287,7 +287,7 @@ function DocumentManager({ mode }) {
                       <p style={detailRowStyle}><strong style={labelStyle}>MATCHED ID:</strong> <span style={valueStyle}>{result.fileId}</span></p>
                     )}
                   </div>
-                  
+
                   {/* AUDIT TRAIL DISPLAY */}
                   {result.fileId && (
                     <div style={{
@@ -299,7 +299,7 @@ function DocumentManager({ mode }) {
                       marginBottom: '1rem'
                     }}>
                       <h4 style={{ color: '#aa00ff', margin: '0 0 1rem 0', letterSpacing: '1px', textShadow: '0 0 5px rgba(170, 0, 255, 0.5)' }}>SYSTEM AUDIT TRAIL</h4>
-                      {(()=>{
+                      {(() => {
                         const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
                         const audit = storedAudits[result.fileId] || {};
                         const formatTime = (iso) => {
@@ -308,16 +308,16 @@ function DocumentManager({ mode }) {
                         };
                         return (
                           <>
-                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>UPLOADED AT:</strong> <span style={valueStyle}>{formatTime(audit.uploadTime)}</span></p>
-                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST VERIFIED:</strong> <span style={valueStyle}>{formatTime(audit.lastVerified)}</span></p>
-                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center'}}><span style={{marginRight: '8px', fontSize: '1.2rem'}}></span> <strong style={{...labelStyle, marginRight: '10px'}}>LAST CHECKED:</strong> <span style={valueStyle}>{formatTime(new Date().toISOString())}</span></p>
-                            <p style={{...detailRowStyle, flexDirection: 'row', alignItems: 'center', marginTop: '10px', color: '#ffaa00'}}><strong style={{marginRight: '10px'}}>VERIFICATION COUNT:</strong> <span>{audit.verifyCount || 0} times</span></p>
+                            <p style={{ ...detailRowStyle, flexDirection: 'row', alignItems: 'center' }}><span style={{ marginRight: '8px', fontSize: '1.2rem' }}></span> <strong style={{ ...labelStyle, marginRight: '10px' }}>UPLOADED AT:</strong> <span style={valueStyle}>{formatTime(audit.uploadTime)}</span></p>
+                            <p style={{ ...detailRowStyle, flexDirection: 'row', alignItems: 'center' }}><span style={{ marginRight: '8px', fontSize: '1.2rem' }}></span> <strong style={{ ...labelStyle, marginRight: '10px' }}>LAST VERIFIED:</strong> <span style={valueStyle}>{formatTime(audit.lastVerified)}</span></p>
+                            <p style={{ ...detailRowStyle, flexDirection: 'row', alignItems: 'center' }}><span style={{ marginRight: '8px', fontSize: '1.2rem' }}></span> <strong style={{ ...labelStyle, marginRight: '10px' }}>LAST CHECKED:</strong> <span style={valueStyle}>{formatTime(new Date().toISOString())}</span></p>
+                            <p style={{ ...detailRowStyle, flexDirection: 'row', alignItems: 'center', marginTop: '10px', color: '#ffaa00' }}><strong style={{ marginRight: '10px' }}>VERIFICATION COUNT:</strong> <span>{audit.verifyCount || 0} times</span></p>
                           </>
                         );
                       })()}
                     </div>
                   )}
-                  
+
                   <div style={{
                     marginTop: '2rem',
                     padding: '1.2rem',
@@ -326,58 +326,58 @@ function DocumentManager({ mode }) {
                     borderRadius: '4px'
                   }}>
                     <h4 style={{
-                      color: 'var(--neon-blue)', 
-                      margin: '0 0 0.5rem 0', 
-                      fontSize: '1rem', 
+                      color: 'var(--neon-blue)',
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1rem',
                       letterSpacing: '1px',
                       textShadow: '0 0 5px var(--neon-blue)'
                     }}>DOCUMENT SUMMARY</h4>
                     <p style={{
-                      color: '#fff', 
-                      margin: 0, 
-                      fontSize: '1.1rem', 
+                      color: '#fff',
+                      margin: 0,
+                      fontSize: '1.1rem',
                       lineHeight: '1.5'
                     }}>
-                      {(()=>{
+                      {(() => {
                         const filename = (file ? file.name : "").toLowerCase();
                         const year = new Date().getFullYear();
-                        
+
                         let docType = "verified document";
                         let purpose = "";
                         let name = "";
                         let issuer = "";
 
                         if (filename.includes("degree") || filename.includes("b.tech") || filename.includes("bachelor")) {
-                            docType = "degree certificate";
-                            purpose = filename.includes("b.tech") ? "completion of B.Tech" : "degree completion";
+                          docType = "degree certificate";
+                          purpose = filename.includes("b.tech") ? "completion of B.Tech" : "degree completion";
                         } else if (filename.includes("agreement") || filename.includes("contract")) {
-                            docType = "legal agreement";
+                          docType = "legal agreement";
                         } else if (filename.includes("cert")) {
-                            docType = "certificate";
-                            purpose = "certified validation";
+                          docType = "certificate";
+                          purpose = "certified validation";
                         } else if (filename.includes("id")) {
-                            docType = "identity document";
-                            purpose = "proof of identity";
+                          docType = "identity document";
+                          purpose = "proof of identity";
                         }
 
                         if (filename.includes("krish")) {
-                            name = "Krish Jain";
+                          name = "Krish Jain";
                         } else {
-                            const nameMatch = filename.match(/^([A-Za-z]+)[_-]([A-Za-z]+)/);
-                            if (nameMatch) {
-                                name = `${nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1)} ${nameMatch[2].charAt(0).toUpperCase() + nameMatch[2].slice(1)}`;
-                            }
+                          const nameMatch = filename.match(/^([A-Za-z]+)[_-]([A-Za-z]+)/);
+                          if (nameMatch) {
+                            name = `${nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1)} ${nameMatch[2].charAt(0).toUpperCase() + nameMatch[2].slice(1)}`;
+                          }
                         }
 
                         if (filename.includes("university")) issuer = "a University";
                         else issuer = "a secured organization";
 
                         let summaryWords = [`This is a ${docType}`];
-                        
+
                         if (issuer) summaryWords.push(`issued by ${issuer}`);
                         if (name) summaryWords.push(`for ${name}`);
                         if (purpose) summaryWords.push(`, confirming ${purpose}`);
-                        
+
                         summaryWords.push(`in ${year}.`);
 
                         return summaryWords.join(' ').replace(' ,', ',');
