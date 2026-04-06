@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 // Predefined list of authorized government officials (simulated)
 // For testing, users should add their MetaMask address here
 const AUTHORIZED_WALLETS = [
+  "0x74287b9D2882eb4a62F3B6dc9D53373676bFCfD3", // New authorized address
   "0xa029D9F1F06244745aD4DacD8C210848116e66e8", // User authorized address
   "0x123...",
   "0xABC...",
