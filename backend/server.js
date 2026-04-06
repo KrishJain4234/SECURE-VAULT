@@ -6,7 +6,7 @@ const _path = require('path');
 const cors = require('cors');
 const QRCode = require('qrcode');
 const Tesseract = require('tesseract.js');
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,7 +70,9 @@ app.post('/upload', upload.single('document'), async (req, res) => {
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
             if (isPDF) {
                 const dataBuffer = fs.readFileSync(filePath);
-                const data = await pdfParse(dataBuffer);
+                const parser = new PDFParse({ data: dataBuffer });
+                const data = await parser.getText();
+                await parser.destroy();
                 text = data.text;
             } else {
                 const result = await Tesseract.recognize(filePath, 'eng');
@@ -147,7 +149,9 @@ app.post('/verify', upload.single('document'), async (req, res) => {
             const isPDF = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
             if (isPDF) {
                 const dataBuffer = fs.readFileSync(filePath);
-                const data = await pdfParse(dataBuffer);
+                const parser = new PDFParse({ data: dataBuffer });
+                const data = await parser.getText();
+                await parser.destroy();
                 text = data.text;
             } else {
                 const result = await Tesseract.recognize(filePath, 'eng');
