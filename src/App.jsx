@@ -6,6 +6,7 @@ import Navbar from './Navbar'
 import Features from './Features'
 import { Routes, Route } from 'react-router-dom'
 import VerificationPage from './VerificationPage'
+import Preloader from './Preloader'
 
 const CHARS = ['V', 'M', 'S', 'W', 'O', 'T', 'F', 'D', 'I', 'u', 'e', 'X', '1', '0', '>', '<', '//', '#', '@']
 
@@ -14,6 +15,7 @@ function App() {
   const [particles, setParticles] = useState([])
   const [streams, setStreams] = useState([])
   const [currentPage, setCurrentPage] = useState('home')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Generate random background characters
@@ -59,6 +61,18 @@ function App() {
 
     return () => clearInterval(charInterval)
   }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 3000) // 3 seconds for preloader
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (isLoading) {
+    return <Preloader />
+  }
 
   return (
     <>

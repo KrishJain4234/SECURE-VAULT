@@ -1,0 +1,153 @@
+.sv-preloader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-color, #050814);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  color: #fff;
+  overflow: hidden;
+}
+
+.sv-preloader-glow {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  animation: pulse-glow-slow 4s infinite alternate;
+}
+
+.top-glow {
+  top: -30vw;
+  left: -20vw;
+  background: radial-gradient(circle, var(--neon-blue, #007bff) 0%, transparent 70%);
+}
+
+.bottom-glow {
+  bottom: -30vw;
+  right: -20vw;
+  background: radial-gradient(circle, var(--neon-pink, #ff007f) 0%, transparent 70%);
+}
+
+@keyframes pulse-glow-slow {
+  0% { transform: scale(1); opacity: 0.1; }
+  100% { transform: scale(1.1); opacity: 0.25; }
+}
+
+.sv-preloader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  width: 100%;
+  max-width: 450px;
+  padding: 0 20px;
+}
+
+/* Premium smooth dual spinner rings */
+.sv-loader-spinner {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  margin-bottom: 40px;
+}
+
+.sv-spinner-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.blue-ring {
+  border-top-color: var(--neon-blue, #007bff);
+  border-right-color: var(--neon-blue, #007bff);
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+  animation: spin-cw 1.2s cubic-bezier(0.68, -0.2, 0.265, 1.2) infinite;
+}
+
+.pink-ring {
+  border-bottom-color: var(--neon-pink, #ff007f);
+  border-left-color: var(--neon-pink, #ff007f);
+  box-shadow: 0 0 10px rgba(255, 0, 127, 0.3);
+  width: 60%;
+  height: 60%;
+  top: 20%;
+  left: 20%;
+  animation: spin-ccw 1.8s cubic-bezier(0.68, -0.2, 0.265, 1.2) infinite;
+}
+
+@keyframes spin-cw {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin-ccw {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+/* Flowing, fast text transition */
+.sv-loading-text {
+  font-family: var(--font-tagline, 'Inter', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: #fff;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  animation: text-slide-up 0.4s ease-out forwards;
+  opacity: 0;
+  text-align: center;
+  min-height: 24px;
+}
+
+@keyframes text-slide-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.sv-progress-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sv-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.sv-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-blue, #007bff), var(--neon-pink, #ff007f));
+  border-radius: 4px;
+  box-shadow: 0 0 15px var(--neon-blue, rgba(0, 123, 255, 0.5)), 0 0 15px var(--neon-pink, rgba(255, 0, 127, 0.5));
+  transition: width 0.05s linear;
+}
+
+.sv-progress-percentage {
+  margin-top: 15px;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+}
