@@ -96,7 +96,7 @@ TEXT:
     }
     
     try:
-        response = requests.post(OLLAMA_API_URL, json=payload, timeout=60)
+        response = requests.post(OLLAMA_API_URL, json=payload, timeout=3.0)
         response.raise_for_status()
         data = response.json()
         return data.get("response", "").strip()

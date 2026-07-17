@@ -390,6 +390,9 @@ function DocumentManager({ mode }) {
                       : `UNAUTHORIZED WALLET: ${walletAddress.substring(0, 6)}...${walletAddress.substring(38)}`
                     }
                   </p>
+                  <p style={{ margin: '4px 0 0 0', color: '#888', fontSize: '0.8rem', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                    {walletAddress}
+                  </p>
                   {!isAuthorized && (
                     <p style={{ margin: '8px 0 0 0', color: '#ff003c', fontSize: '0.9rem', letterSpacing: '1px' }}>
                       ACCESS DENIED: UNAUTHORIZED ISSUER
@@ -401,44 +404,46 @@ function DocumentManager({ mode }) {
           )}
 
           {/* UPLOAD / SELECT SECTION */}
-          <div style={inputSectionStyle}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-            <button className="file-select-hover" style={uploadBtnStyle} onClick={() => fileInputRef.current?.click()}>
-              Select Document to Secure
-            </button>
-            {file && (
-              <div style={{ marginTop: '1.5rem', color: 'var(--neon-blue)', fontSize: '1.1rem', padding: '10px', borderLeft: '4px solid var(--neon-blue)', background: 'rgba(0, 243, 255, 0.05)' }}>
-                <span style={{ color: '#fff' }}>FILE:</span> {file.name}
-                <span style={{ color: '#aaa', marginLeft: '10px' }}>({(file.size / 1024).toFixed(2)} KB)</span>
+          {!(activeTab === 'upload' && (!walletAddress || !isAuthorized)) && (
+            <>
+              <div style={inputSectionStyle}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />
+                <button className="file-select-hover" style={uploadBtnStyle} onClick={() => fileInputRef.current?.click()}>
+                  {activeTab === 'upload' ? 'Select Document to Secure' : 'Select Document to Verify'}
+                </button>
+                {file && (
+                  <div style={{ marginTop: '1.5rem', color: 'var(--neon-blue)', fontSize: '1.1rem', padding: '10px', borderLeft: '4px solid var(--neon-blue)', background: 'rgba(0, 243, 255, 0.05)' }}>
+                    <span style={{ color: '#fff' }}>FILE:</span> {file.name}
+                    <span style={{ color: '#aaa', marginLeft: '10px' }}>({(file.size / 1024).toFixed(2)} KB)</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <div style={dividerStyle}></div>
+              <div style={dividerStyle}></div>
 
-          {/* ACTION SECTION */}
-          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-            {!(activeTab === 'upload' && (!walletAddress || !isAuthorized)) && (
-              <button
-                className="upload-btn-hover"
-                style={actionBtnStyle}
-                disabled={loading}
-                onClick={activeTab === 'upload' ? handleUpload : handleVerify}
-              >
-                {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
-              </button>
-            )}
-            {loading && (
-              <div style={{ marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px' }}>
-                {loadingPhase} <div className="blinking-cursor"></div>
+              {/* ACTION SECTION */}
+              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                <button
+                  className="upload-btn-hover"
+                  style={actionBtnStyle}
+                  disabled={loading}
+                  onClick={activeTab === 'upload' ? handleUpload : handleVerify}
+                >
+                  {loading ? 'PROCESSING...' : activeTab === 'upload' ? 'INITIATE UPLOAD' : 'INITIATE VERIFICATION'}
+                </button>
+                {loading && (
+                  <div style={{ marginTop: '1.5rem', color: 'var(--neon-pink)', fontSize: '1.1rem', letterSpacing: '2px' }}>
+                    {loadingPhase} <div className="blinking-cursor"></div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {/* RESULT / STATUS SECTION */}
           {result && (

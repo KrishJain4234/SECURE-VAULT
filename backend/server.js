@@ -7,6 +7,14 @@ const cors = require('cors');
 const os = require('os');
 const ethSigUtil = require('@metamask/eth-sig-util');
 const axios = require('axios');
+
+// Prevent native worker crashes or unhandled rejections from taking down the API server
+process.on('uncaughtException', (err) => {
+    console.error('[Global Error] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Global Error] Unhandled Rejection at:', promise, 'reason:', reason);
+});
 const pythonExecutable = os.platform() === 'win32'
     ? _path.join(__dirname, 'venv', 'Scripts', 'python.exe')
     : _path.join(__dirname, 'venv', 'bin', 'python');
@@ -171,10 +179,11 @@ app.post('/upload', upload.single('document'), async (req, res) => {
 
                 const pinataRes = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", fd, {
                     maxBodyLength: "Infinity",
+                    timeout: 4000, // 4-second timeout to fail-fast
                     headers: {
                         'Content-Type': `multipart/form-data; boundary=${fd._boundary}`,
-                        pinata_api_key: '10776af10530916d36df',
-                        pinata_secret_api_key: process.env.PINATA_SECRET || '24253bc92a83b5112dd662c351fd2d70d1a901b7138dc1f13f9379a889874519',
+                        pinata_api_key: '55dbd419da653685ca05',
+                        pinata_secret_api_key: process.env.PINATA_SECRET || '1533eae3308e666d9ad8ec7ae2dc5641718c8f40fd601906f1595f50fa54b756',
                     }
                 });
                 ipfsCID = pinataRes.data.IpfsHash;
