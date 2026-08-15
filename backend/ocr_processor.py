@@ -77,10 +77,12 @@ def extract_text_from_ocr_space(base64_image):
         print(f"[Python-OCR] Exception in OCR.space API: {e}", file=sys.stderr)
         return ""
 
+ENABLE_LLM_CORRECTION = False  # Toggle for qwen3 Ollama LLM correction (Disabled for certificate workflow)
+
 def fix_typos_with_llm(raw_text):
     """Send text to local Ollama LLM to fix typos."""
-    if not raw_text.strip():
-        return ""
+    if not ENABLE_LLM_CORRECTION or not raw_text.strip():
+        return raw_text
     
     prompt = f"""The following text is the output of an OCR scan from a handwritten document. 
 It may contain typos, misread characters, or spacing issues.
