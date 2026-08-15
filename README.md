@@ -1,114 +1,139 @@
-# SECURE-VAULT: Zero-Knowledge Decentralized Document Notarization
+# SECURE-VAULT — Prototype Status Brief
 
-SecureVault is an immersive, cyberpunk-themed decentralized application (dApp) designed for secure, tamper-proof document archiving and verification. It integrates **MetaMask**, **IPFS (via Pinata)**, and a **dual-engine OCR pipeline** to notarize documents without storing cleartext files on the server or public cloud.
-
----
-
-## 🚀 Key Talking Points for Interviews
-
-If an interviewer asks you to explain this project, here are the **4 core design principles** to highlight:
-
-1. **Zero-Knowledge Privacy Architecture:**
-   * *Talking Point:* *"My server operates on a zero-knowledge policy. When you upload a document, the server extracts its text and hash, encrypts the file in-memory using a symmetric AES key, and immediately deletes the original document from the server's disk. The raw file is never saved or exposed."*
-2. **MetaMask Cryptographic Key Exchange:**
-   * *Talking Point:* *"To ensure only the document owner can access the file, we request the user's MetaMask encryption public key (`eth_getEncryptionPublicKey`). We encrypt the AES symmetric key with their public key and upload the encrypted package to IPFS. Only the owner can request MetaMask to decrypt it (`eth_decrypt`) via their private key."*
-3. **Fuzzy Document Verification (Tamper Detection):**
-   * *Talking Point:* *"Traditional blockchain notarization fails if a user uploads a slightly resized, compressed, or reformatted version of the same PDF because the file hash changes completely. My app solves this by extracting the text layer and performing fuzzy text-similarity matching. If the hash matches, it's 100% verified. If only the text aligns, it flags it as 'Valid with Minor Changes' (e.g. format compression). Otherwise, it flags it as 'TAMPERED'."*
-4. **Resilient Fail-Safe Integrations:**
-   * *Talking Point:* *"I implemented fail-safe timeouts (e.g. 4 seconds on Pinata upload, 3 seconds on local LLM preprocessing). If external APIs or local models are offline, the app instantly falls back to mock local IPFS storage and raw OCR text, preventing the user interface from hanging or crashing."*
+> **Purpose:** Quick-reference for AI assistants or collaborators to understand the *current, actual state* of this prototype — what works, what is broken, and what is missing.
 
 ---
 
-## 🛠️ System Architecture & Workflow
+## What This Project Is
 
-Here is how data flows through the application:
+**SecureVault** is a document notarization + integrity verification prototype. It lets authorised issuers upload documents and later lets anyone verify whether a document has been tampered with.
 
-### 1. Document Upload / Notarization Flow
+Core idea:
+- Compute a **SHA-256 hash** of the document → store it as the fingerprint
+- Run **OCR** on the document → store normalized text for fuzzy matching
+- **Encrypt** the file with AES-256-GCM, wrap the key using the issuer's MetaMask public key
+- Pin the **encrypted blob to IPFS** (Pinata)
+- Verify later by exact hash match or text similarity (Dice coefficient ≥ 0.95)
+- QR code on the document deep-links to a public verification page
+
+---
+
+## Current Tech Stack (Active Code Only)
+
+| Layer | Technology | Status |
+|-------|-----------|--------|
+| Frontend | Vite + React 19 SPA (`src/`) | ✅ Running |
+| Backend | Node.js + Express 5 (`backend/server.js`) | ✅ Running |
+| OCR (JS) | Tesseract.js (in-process, confidence-gated) | ✅ Works |
+| OCR (Python) | OpenCV + OCR.space API + Ollama qwen3:4b (`backend/ocr_processor.py`) | ✅ Works (if Ollama running) |
+| Storage | `backend/database.json` (flat-file JSON, NOT a real blockchain) | ✅ Works |
+| IPFS | Pinata Cloud (4s timeout) → local mock fallback (`backend/uploads/ipfs/`) | ✅ Works |
+| Encryption | AES-256-GCM (Node crypto) + x25519-xsalsa20-poly1305 key wrap (eth-sig-util) | ⚠️ Broken on modern MetaMask |
+| Smart Contract | `contracts/DocumentVault.sol` (Solidity, Hardhat) | ❌ Disconnected — never called |
+
+---
+
+## What Actually Works (Prototype Demo)
+
+1. **Upload flow** — Connect MetaMask → select file → backend hashes + OCRs + encrypts → stores record in `database.json` → returns fileId + hash + IPFS CID
+2. **Verify flow** — Upload file → backend tries exact hash match → falls back to OCR + string similarity → returns `VERIFIED` / `VALID (Minor Changes Detected)` / `TAMPERED`
+3. **Fetch & Decrypt** — Enter fileId → MetaMask decrypts AES key → download decrypted PDF
+4. **Public verification page** — `/verify/:documentId` — fetches record from backend, shows hash + timestamp + issuer
+
+---
+
+## Critical Broken / Blocked Things
+
+| # | Problem | Impact |
+|---|---------|--------|
+| 1 | `eth_getEncryptionPublicKey` & `eth_decrypt` **removed in MetaMask v11** | Entire upload encryption + decrypt flow is broken on modern MetaMask |
+| 2 | Backend API URL **hardcoded to `http://localhost:5000`** in all frontend files | Cannot deploy frontend anywhere |
+| 3 | Pinata API key & OCR.space API key **hardcoded in source code** | Security risk; must move to env vars |
+| 4 | **No server-side auth** — wallet whitelist is client-side JS only | Anyone can bypass issuer restriction |
+| 5 | **CORS fully open** (`app.use(cors())`) | Any origin can call the backend |
+| 6 | Smart contract layer is **100% dead code** — the "blockchain" is a JSON file | Misleading to users/stakeholders |
+| 7 | Navigation is **state-based, not URL-based** — deep links to `/upload`, `/verify` etc. don't work | Poor UX; breaks sharing |
+| 8 | `normalizedText` (full document content) returned by unauthenticated `GET /info` | Data leakage |
+| 9 | **No `requirements.txt`** for Python OCR dependencies | Manual setup required |
+| 10 | **No rate limiting** — easy to DoS or exhaust OCR.space free quota | Production blocker |
+
+---
+
+## What Does NOT Exist Yet (Missing Features)
+
+- ❌ Certificate PDF generation (no template, no endpoint — `qrcode` npm package installed but never called)
+- ❌ Real blockchain integration (contract written, never wired to the active app)
+- ❌ Server-side audit trail (current "audit" is `localStorage` only — not shared between devices)
+- ❌ Environment variable setup (`dotenv`, `.env` files, `VITE_` prefix vars)
+- ❌ Any authentication / session management on the backend
+- ❌ File type validation on upload
+- ❌ Rate limiting
+- ❌ URL-driven routing for main pages
+
+---
+
+## Folder Map (What Matters vs. Dead Code)
+
 ```
-[User Selects File] 
-        ↓
-[MetaMask Sign-In & Verification] (Must match AUTHORIZED_WALLETS list)
-        ↓
-[Fetch MetaMask Encryption Public Key]
-        ↓
-[Generate Symmetric AES-256 Key] ───→ [Encrypt Document]
-        ↓                                      ↓
-[Encrypt AES Key with Public Key]        [Upload Encrypted PDF to IPFS]
-        ↓                                      ↓
-[Store IPFS CID & Encrypted Key Payload] ←─────┘
-        ↓
-[Hash & Extract Text (PDF-Parse/Tesseract/OpenCV)]
-        ↓
-[Store Meta Records (Hash, KeyFields, Normalized Text) in database.json]
-```
-
-### 2. Verification Flow
-```
-[User Uploads Document to Verify]
-        ↓
-[Calculate SHA-256 Hash of Uploaded File]
-        ↓
-[Check database.json for Exact Hash Match] ──(Match Found)──→ [VERIFIED (100% Perfect Match)]
-        ↓ (No Hash Match)
-[Run OCR / Text Extraction]
-        ↓
-[Normalize Extracted Text (Spaces & Cases removed)]
-        ↓
-[Run String-Similarity match with database.json records]
-        ├──────→ (Similarity = 100%) ───→ [VERIFIED (Text Match)]
-        ├──────→ (Similarity >= 95%) ───→ [VALID (Minor Format Changes)]
-        └──────→ (Similarity < 95%) ────→ [ALERT: DOCUMENT TAMPERED]
+SECURE-VAULT/
+├── src/                  ← ACTIVE: Vite/React frontend
+├── backend/              ← ACTIVE: Express API + Python OCR
+│   ├── server.js         ← all backend logic (387 LOC)
+│   ├── ocr_processor.py  ← heavy OCR (OpenCV + OCR.space + Ollama)
+│   └── database.json     ← flat-file "blockchain" store
+├── contracts/            ← DEAD: Solidity contract (never called)
+├── lib/                  ← DEAD: Next.js-era helpers
+├── pages/                ← DEAD: Old Next.js pages
+├── components/           ← DEAD: Old Next.js components
+├── scripts/              ← DEAD: Hardhat deploy script
+└── styles/               ← DEAD: Next.js global CSS
 ```
 
 ---
 
-## 💻 Tech Stack
+## Ports
 
-* **Frontend:** React (React 19), Vite, React Router DOM, Tailwind/Vanilla CSS (Cyberpunk glassmorphic design).
-* **Backend:** Node.js (Express), Multer (File upload handler).
-* **Cryptographic Keys:** Ethers/MetaMask API (`personal_sign`, `eth_getEncryptionPublicKey`, `eth_decrypt`), Web Crypto API (AES-GCM in-browser decryption).
-* **Storage:** Decentralized IPFS via Pinata API.
-* **OCR Engines:** 
-  * Primary: `pdf-parse` (fast digital extraction).
-  * Secondary: `Tesseract.js` (browser/Node optical character recognition).
-  * Fallback: OpenCV Python script preprocessing (Contrast enhancement, CLAHE filter) coupled with the OCR Space API.
+| Service | Port |
+|---------|------|
+| Vite dev server (frontend) | `5173` |
+| Express backend | `5000` |
+| Ollama LLM (local, optional) | `11434` |
 
 ---
 
-## ⚙️ Setup & Configuration
+## How to Run Locally
 
-### Prerequisites
-* Node.js installed (v18+)
-* MetaMask Extension installed on your web browser.
+```bash
+# Terminal 1 — Backend
+cd backend
+node server.js
 
-### Configuration
-1. **Authorized Wallets:** Add your MetaMask address to the `AUTHORIZED_WALLETS` array in [src/DocumentManager.jsx](file:///c:/Users/kj896/SECURE-VAULT/src/DocumentManager.jsx#L12) to grant yourself upload privileges.
-2. **Pinata Credentials:** The Pinata IPFS keys are configured in [backend/server.js](file:///c:/Users/kj896/SECURE-VAULT/backend/server.js#L182) using:
-   * `pinata_api_key`
-   * `pinata_secret_api_key`
+# Terminal 2 — Frontend
+npm run dev
 
-### Installation
-1. Install root dependencies:
-   ```bash
-   npm install
-   ```
-2. Start the Frontend development server:
-   ```bash
-   npm run dev
-   ```
-3. Install backend dependencies:
-   ```bash
-   cd backend
-   npm install
-   ```
-4. Start the Backend API server:
-   ```bash
-   npm start
-   ```
+# Optional: Ollama for LLM OCR correction
+ollama run qwen3:4b
+```
 
 ---
 
-## 🔒 Security Summary
-* **Encrypted at Rest:** Files on IPFS are AES-GCM encrypted and cannot be read without the owner's MetaMask private key.
-* **Transient File Processing:** No uploaded cleartext files are saved to the server's disk permanently.
-* **Tamper Proof:** The file hash on the registry database guarantees the cryptographic immutability of the uploaded records.
+## 🎯 Presentation Technical Q&A Cheat Sheet
+
+1. **Q: What is the backend technology stack?**
+   - **A:** **Node.js** (JavaScript runtime) + **Express.js** (REST API framework), paired with **Python** (OpenCV/OCR) and **PDFKit** for PDF generation.
+
+2. **Q: How does certificate tampering detection work?**
+   - **A:** SHA-256 cryptographic hashing. Even a single character or pixel modification changes the SHA-256 digest completely, failing verification.
+
+3. **Q: Why use QR codes on certificates?**
+   - **A:** The QR code embeds a deep link (`/verify/SV-2026-XXXX`). Scanning it instantly opens the public verification portal to validate the certificate's authenticity against stored records.
+
+4. **Q: Why is OCR included if certificates are digital PDFs?**
+   - **A:** OCR acts as a secondary verification fallback for scanned physical certificate printouts or images where digital PDF hashes cannot match.
+
+5. **Q: How are certificates stored securely?**
+   - **A:** Certificate PDFs are saved on disk (`/certificates`), metadata is stored with SHA-256 fingerprints in `database.json`, and encrypted document payloads are pinned to IPFS (Pinata).
+
+---
+
+*Last updated: 2026-08-15 | Prototype stage — not production-ready*

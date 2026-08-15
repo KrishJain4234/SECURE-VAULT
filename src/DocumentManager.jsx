@@ -55,14 +55,14 @@ function DocumentManager({ mode }) {
         if (i < phases.length) {
           setLoadingPhase(phases[i]);
         } else if (i === phases.length + 2) {
-          setLoadingPhase('LOW CONFIDENCE DETECTED: ROUTING TO HEAVY PYTHON LLM...');
+          setLoadingPhase('PROCESSING DOCUMENT STRUCTURE...');
         } else if (i === phases.length + 6) {
           setLoadingPhase('OCR.SPACE IMAGE EXTRACTION IN PROGRESS...');
         } else if (i === phases.length + 15) {
-          setLoadingPhase('QWEN3 NEURAL NET: CORRECTING SEMANTIC TYPOS...');
+          setLoadingPhase('EXTRACTING TEXT FIELDS & VALIDATING...');
         } else if (i > phases.length + 25) {
           const dots = '.'.repeat((i % 3) + 1);
-          setLoadingPhase('LLM ANALYSIS (this may take a while)' + dots);
+          setLoadingPhase('FINALIZING PROCESSING' + dots);
         }
       }, 600);
     } else {
