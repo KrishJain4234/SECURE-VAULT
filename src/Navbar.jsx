@@ -1,6 +1,7 @@
 export default function Navbar({ currentPage, setCurrentPage }) {
   const navItems = [
     { id: 'home', label: 'HOME' },
+    { id: 'issue-certificate', label: 'ISSUE CERTIFICATE' },
     { id: 'upload', label: 'UPLOAD FILE' },
     { id: 'verify', label: 'VERIFY FILE' },
     { id: 'download', label: 'FETCH & DECRYPT' },

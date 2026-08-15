@@ -25,11 +25,21 @@ const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
+const PDFDocument = require('pdfkit');
+const QRCode = require('qrcode');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Setup certificates directory
+const certificatesDir = _path.join(__dirname, 'certificates');
+if (!fs.existsSync(certificatesDir)) {
+    fs.mkdirSync(certificatesDir, { recursive: true });
+}
+app.use('/certificates', express.static(certificatesDir));
 
 // Simulated blockchain storage used for prototype
 const DB_FILE = _path.join(__dirname, 'database.json');
@@ -368,8 +378,277 @@ app.post('/verify', upload.single('document'), async (req, res) => {
 
 
 
+// Function to generate professional PDF certificate using PDFKit
+const createCertificatePDF = async ({ certificateId, studentName, certificateTitle, course, organization, issueDate, description, timestamp, verificationUrl, pdfPath }) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const qrBuffer = await QRCode.toBuffer(verificationUrl, { width: 140, margin: 1 });
+
+            // A4 Landscape: 841.89 x 595.28 points
+            const doc = new PDFDocument({
+                size: 'A4',
+                layout: 'landscape',
+                margin: 0
+            });
+
+            const stream = fs.createWriteStream(pdfPath);
+            doc.pipe(stream);
+
+            const width = doc.page.width;
+            const height = doc.page.height;
+
+            // Background fill
+            doc.rect(0, 0, width, height).fill('#080a10');
+
+            // Outer cyan border
+            doc.rect(20, 20, width - 40, height - 40)
+               .lineWidth(3)
+               .stroke('#00f3ff');
+
+            // Inner pink border
+            doc.rect(28, 28, width - 56, height - 56)
+               .lineWidth(1)
+               .stroke('#ff0055');
+
+            // Corner decorative accents
+            const drawCorner = (x, y) => {
+                doc.rect(x, y, 15, 15).fill('#00f3ff');
+            };
+            drawCorner(20, 20);
+            drawCorner(width - 35, 20);
+            drawCorner(20, height - 35);
+            drawCorner(width - 35, height - 35);
+
+            // Header Title
+            doc.fillColor('#00f3ff')
+               .fontSize(16)
+               .font('Helvetica-Bold')
+               .text('[ SECURE-VAULT DIGITAL CERTIFICATE SYSTEM ]', 0, 50, { align: 'center' });
+
+            doc.fillColor('#888888')
+               .fontSize(10)
+               .font('Helvetica')
+               .text('GOVERNMENT & INSTITUTIONAL IMMUTABLE CERTIFICATE NOTARIZATION', 0, 72, { align: 'center' });
+
+            // Main Certificate Header
+            doc.fillColor('#ffffff')
+               .fontSize(28)
+               .font('Helvetica-Bold')
+               .text('CERTIFICATE OF ACHIEVEMENT', 0, 110, { align: 'center' });
+
+            doc.fillColor('#ff0055')
+               .fontSize(12)
+               .font('Helvetica')
+               .text('THIS IS PROUDLY PRESENTED TO', 0, 150, { align: 'center' });
+
+            // Student Name
+            doc.fillColor('#00f3ff')
+               .fontSize(32)
+               .font('Helvetica-Bold')
+               .text(studentName.toUpperCase(), 0, 175, { align: 'center' });
+
+            // Line separator under student name
+            doc.moveTo(width / 2 - 150, 215)
+               .lineTo(width / 2 + 150, 215)
+               .lineWidth(1.5)
+               .stroke('#00f3ff');
+
+            doc.fillColor('#cccccc')
+               .fontSize(12)
+               .font('Helvetica')
+               .text('FOR SUCCESSFUL COMPLETION AND RECOGNITION OF', 0, 230, { align: 'center' });
+
+            // Certificate Title & Course
+            doc.fillColor('#ffffff')
+               .fontSize(22)
+               .font('Helvetica-Bold')
+               .text(certificateTitle, 0, 255, { align: 'center' });
+
+            if (course) {
+                doc.fillColor('#ff0055')
+                   .fontSize(14)
+                   .font('Helvetica-Bold')
+                   .text(`PROGRAM / COURSE: ${course.toUpperCase()}`, 0, 285, { align: 'center' });
+            }
+
+            if (description) {
+                doc.fillColor('#aaaaaa')
+                   .fontSize(11)
+                   .font('Helvetica-Oblique')
+                   .text(`"${description}"`, 80, 315, { align: 'center', width: width - 160 });
+            }
+
+            // Issuing Organization
+            doc.fillColor('#00f3ff')
+               .fontSize(14)
+               .font('Helvetica-Bold')
+               .text(`ISSUED BY: ${organization.toUpperCase()}`, 0, 365, { align: 'center' });
+
+            doc.fillColor('#888888')
+               .fontSize(11)
+               .font('Helvetica')
+               .text(`ISSUE DATE: ${issueDate}`, 0, 385, { align: 'center' });
+
+            // Bottom Footer metadata box
+            doc.rect(45, height - 145, width - 230, 95)
+               .fillAndStroke('rgba(0, 243, 255, 0.05)', '#00f3ff');
+
+            doc.fillColor('#ff0055')
+               .fontSize(10)
+               .font('Helvetica-Bold')
+               .text('SECURE-VAULT VERIFICATION ANCHOR', 60, height - 135);
+
+            doc.fillColor('#ffffff')
+               .fontSize(9)
+               .font('Helvetica')
+               .text(`CERTIFICATE ID: ${certificateId}`, 60, height - 118)
+               .text(`TIMESTAMP: ${timestamp}`, 60, height - 104)
+               .text(`ISSUER NODE: OFFICIAL GOVT / ACADEMIC VAULT`, 60, height - 90);
+
+            doc.fillColor('#888888')
+               .fontSize(8)
+               .font('Helvetica')
+               .text(`VERIFY AT: ${verificationUrl}`, 60, height - 74);
+
+            // Embed QR Code
+            doc.image(qrBuffer, width - 170, height - 150, { width: 110, height: 110 });
+
+            doc.end();
+
+            stream.on('finish', () => resolve(pdfPath));
+            stream.on('error', reject);
+
+        } catch (err) {
+            reject(err);
+        }
+    });
+};
+
+// POST /generate-certificate
+app.post('/generate-certificate', async (req, res) => {
+    try {
+        const { studentName, certificateTitle, course, organization, issueDate, description } = req.body;
+        if (!studentName || !certificateTitle || !organization) {
+            return res.status(400).json({ error: 'Missing required fields: studentName, certificateTitle, organization' });
+        }
+
+        // Generate Certificate ID: e.g., SV-2026-0001
+        const year = new Date().getFullYear();
+        const certKeys = Object.keys(blockchainStorage).filter(k => k.startsWith(`SV-${year}-`));
+        const nextNum = String(certKeys.length + 1).padStart(4, '0');
+        const certificateId = `SV-${year}-${nextNum}`;
+
+        const timestamp = new Date().toISOString();
+        const verificationUrl = `http://localhost:5173/verify/${certificateId}`;
+        const pdfFileName = `${certificateId}.pdf`;
+        const pdfPath = _path.join(certificatesDir, pdfFileName);
+
+        // Generate PDF file
+        await createCertificatePDF({
+            certificateId,
+            studentName,
+            certificateTitle,
+            course,
+            organization,
+            issueDate: issueDate || new Date().toISOString().split('T')[0],
+            description,
+            timestamp,
+            verificationUrl,
+            pdfPath
+        });
+
+        // Compute SHA-256 hash of generated PDF
+        const pdfHash = await calculateHash(pdfPath);
+        const certificateUrl = `http://localhost:5000/certificates/${pdfFileName}`;
+
+        // Save record to database.json
+        const certRecord = {
+            id: certificateId,
+            certificateId: certificateId,
+            type: 'certificate',
+            studentName,
+            certificateTitle,
+            course: course || '',
+            organization,
+            issueDate: issueDate || new Date().toISOString().split('T')[0],
+            description: description || '',
+            hash: pdfHash,
+            timestamp,
+            filename: pdfFileName,
+            pdfPath: `certificates/${pdfFileName}`,
+            certificateUrl,
+            verificationUrl,
+            ipfsCID: 'none'
+        };
+
+        blockchainStorage[certificateId] = certRecord;
+        saveStorage();
+
+        console.log(`[Certificate] Successfully generated and anchored certificate: ${certificateId}`);
+
+        res.json({
+            success: true,
+            certificateId,
+            certificateUrl,
+            hash: pdfHash
+        });
+
+    } catch (error) {
+        console.error('[Certificate] Error generating certificate:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /certificate/:certificateId
+app.get('/certificate/:certificateId', (req, res) => {
+    const certId = req.params.certificateId;
+    const record = blockchainStorage[certId];
+    if (!record) {
+        return res.status(404).json({ error: 'Certificate not found' });
+    }
+    res.json({
+        success: true,
+        certificate: record
+    });
+});
+
+// GET /verify/:certificateId
+app.get('/verify/:certificateId', (req, res) => {
+    const searchId = req.params.certificateId;
+    let record = blockchainStorage[searchId];
+
+    if (!record) {
+        record = Object.values(blockchainStorage).find(r => r.hash === searchId || r.certificateId === searchId || r.id === searchId);
+    }
+
+    if (!record) {
+        return res.status(404).json({
+            status: 'INVALID CERTIFICATE',
+            valid: false,
+            message: 'Certificate ID or Document Hash not found in vault registry.'
+        });
+    }
+
+    res.json({
+        status: 'VERIFIED',
+        valid: true,
+        certificateId: record.certificateId || record.id,
+        studentName: record.studentName || null,
+        certificateTitle: record.certificateTitle || record.filename || 'Document Record',
+        course: record.course || null,
+        organization: record.organization || 'SecureVault Anchor Node',
+        issueDate: record.issueDate || null,
+        timestamp: record.timestamp,
+        hash: record.hash,
+        certificateUrl: record.certificateUrl || null,
+        ipfsCID: record.ipfsCID || 'none',
+        type: record.type || 'document'
+    });
+});
+
 app.get('/info', (req, res) => {
-    const record = blockchainStorage[req.query.fileId];
+    const fileId = req.query.fileId;
+    const record = blockchainStorage[fileId] || Object.values(blockchainStorage).find(r => r.certificateId === fileId || r.hash === fileId);
     if (!record) return res.status(404).json({ error: 'Not found' });
     res.json({
         status: "Blockchain Record",
@@ -379,7 +658,15 @@ app.get('/info', (req, res) => {
         keyFields: record.keyFields || [],
         normalizedText: record.normalizedText || '',
         ipfsCID: record.ipfsCID || 'none',
-        encryptedKeyPayload: record.encryptedKeyPayload || null
+        encryptedKeyPayload: record.encryptedKeyPayload || null,
+        certificateId: record.certificateId || record.id,
+        studentName: record.studentName || null,
+        certificateTitle: record.certificateTitle || null,
+        course: record.course || null,
+        organization: record.organization || null,
+        issueDate: record.issueDate || null,
+        certificateUrl: record.certificateUrl || null,
+        type: record.type || 'document'
     });
 });
 

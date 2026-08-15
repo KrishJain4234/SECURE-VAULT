@@ -10,15 +10,18 @@ function VerificationPage() {
   useEffect(() => {
     const fetchRecord = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/info?fileId=${documentId}`);
+        let res = await fetch(`http://localhost:5000/verify/${documentId}`);
+        if (!res.ok) {
+          res = await fetch(`http://localhost:5000/info?fileId=${documentId}`);
+        }
         if (!res.ok) throw new Error('Not found');
         const data = await res.json();
         setRecord(data);
-        
+
         if (documentId) {
           const storedAudits = JSON.parse(localStorage.getItem('documentAudits') || '{}');
           if (!storedAudits[documentId]) {
-             storedAudits[documentId] = { uploadTime: "Unknown", verifyCount: 0 };
+            storedAudits[documentId] = { uploadTime: "Unknown", verifyCount: 0 };
           }
           storedAudits[documentId].lastVerified = new Date().toISOString();
           storedAudits[documentId].verifyCount += 1;
@@ -37,7 +40,7 @@ function VerificationPage() {
     <div style={containerStyle}>
       <div className="terminal-header" style={{...headerStyle, justifyContent: 'center'}}>
         <div style={{color: 'var(--neon-pink)', textShadow: '0 0 8px var(--neon-pink)', fontSize: '1.2rem', fontWeight: 'bold'}}>
-           BLOCKCHAIN IMMUTABLE RECORD VALIDATION
+           BLOCKCHAIN IMMUTABLE RECORD & CERTIFICATE VALIDATION
         </div>
       </div>
       
@@ -52,41 +55,95 @@ function VerificationPage() {
         ) : error ? (
           <div style={{...resultDetailsBox, borderColor: '#ff003c'}}>
             <h3 style={{color: '#ff003c', textShadow: '0 0 15px #ff003c', textAlign: 'center', marginBottom: '1.5rem'}}>
-               &#10008; DOCUMENT NOT FOUND / TAMPERED
+               &#10008; INVALID CERTIFICATE / DOCUMENT NOT FOUND
             </h3>
             <p style={{textAlign: 'center', color: '#ff003c', fontSize: '1.1rem'}}>
-               The scanned document ID does not exist on the simulated blockchain. It may have been tampered with or is invalid.
+               The scanned Certificate ID or Document Hash does not exist on the vault database. It may have been tampered with or is invalid.
             </p>
             <p style={detailRowStyle}><strong style={labelStyle}>SCANNED ID:</strong> <span style={valueStyle}>{documentId}</span></p>
           </div>
         ) : (
           <div style={{...resultDetailsBox, borderColor: '#39ff14'}}>
             <h3 style={{color: '#39ff14', textShadow: '0 0 15px #39ff14', textAlign: 'center', marginBottom: '1.5rem'}}>
-               &#10004; DOCUMENT VERIFIED (AUTHENTIC RECORD)
+               &#10004; VERIFIED (AUTHENTIC IMMUTABLE RECORD)
             </h3>
             
             <p style={detailRowStyle}>
-               <strong style={labelStyle}>DOCUMENT STATUS:</strong> 
+               <strong style={labelStyle}>VALIDATION STATUS:</strong> 
                <span style={{ color: '#39ff14', fontWeight: 'bold', fontSize: '1.2rem', textShadow: '0 0 10px #39ff14' }}>
-                  Verified ✅
+                  VERIFIED ✅
                </span>
             </p>
             <p style={detailRowStyle}>
-               <strong style={labelStyle}>DOCUMENT ID:</strong> 
-               <span style={valueStyle}>{documentId}</span>
+               <strong style={labelStyle}>CERTIFICATE / RECORD ID:</strong> 
+               <span style={{ ...valueStyle, color: 'var(--neon-pink)' }}>{record.certificateId || documentId}</span>
             </p>
+
+            {record.studentName && (
+              <p style={detailRowStyle}>
+                 <strong style={labelStyle}>STUDENT / RECIPIENT NAME:</strong> 
+                 <span style={valueStyle}>{record.studentName}</span>
+              </p>
+            )}
+
+            {record.certificateTitle && (
+              <p style={detailRowStyle}>
+                 <strong style={labelStyle}>CERTIFICATE TITLE:</strong> 
+                 <span style={valueStyle}>{record.certificateTitle}</span>
+              </p>
+            )}
+
+            {record.course && (
+              <p style={detailRowStyle}>
+                 <strong style={labelStyle}>COURSE / PROGRAM:</strong> 
+                 <span style={valueStyle}>{record.course}</span>
+              </p>
+            )}
+
+            {record.organization && (
+              <p style={detailRowStyle}>
+                 <strong style={labelStyle}>ISSUING ORGANIZATION:</strong> 
+                 <span style={valueStyle}>{record.organization}</span>
+              </p>
+            )}
+
+            {record.issueDate && (
+              <p style={detailRowStyle}>
+                 <strong style={labelStyle}>ISSUE DATE:</strong> 
+                 <span style={valueStyle}>{record.issueDate}</span>
+              </p>
+            )}
+
             <p style={detailRowStyle}>
-               <strong style={labelStyle}>SHA-256 HASH:</strong> 
+               <strong style={labelStyle}>SHA-256 HASH FINGERPRINT:</strong> 
                <span style={valueStyleHash}>{record.hash}</span>
             </p>
             <p style={detailRowStyle}>
                <strong style={labelStyle}>TIMESTAMP:</strong> 
                <span style={valueStyle}>{new Date(record.timestamp).toLocaleString()}</span>
             </p>
-            <p style={detailRowStyle}>
-               <strong style={labelStyle}>ISSUER:</strong> 
-               <span style={valueStyle}>SECURE-VAULT SYSTEM NODE</span>
-            </p>
+
+            {record.certificateUrl && (
+              <div style={{ marginTop: '1.5rem', marginBottom: '1rem', textAlign: 'center' }}>
+                <a
+                  href={record.certificateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    padding: '0.8rem 1.5rem',
+                    backgroundColor: '#39ff14',
+                    color: '#000',
+                    fontWeight: 'bold',
+                    textDecoration: 'none',
+                    borderRadius: '4px',
+                    boxShadow: '0 0 10px rgba(57, 255, 20, 0.4)'
+                  }}
+                >
+                  📥 DOWNLOAD OFFICIAL CERTIFICATE PDF
+                </a>
+              </div>
+            )}
 
             {/* AUDIT TRAIL DISPLAY */}
             <div style={{
