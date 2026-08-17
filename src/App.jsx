@@ -8,6 +8,7 @@ import Features from './Features'
 import { Routes, Route } from 'react-router-dom'
 import VerificationPage from './VerificationPage'
 import CertificateIssuance from './CertificateIssuance'
+import CourseDemo from './CourseDemo'
 import Preloader from './Preloader'
 
 const CHARS = ['V', 'M', 'S', 'W', 'O', 'T', 'F', 'D', 'I', 'u', 'e', 'X', '1', '0', '>', '<', '//', '#', '@']
@@ -150,6 +151,8 @@ function App() {
               {currentPage === 'features' && <Features />}
 
               {currentPage === 'issue-certificate' && <CertificateIssuance />}
+
+              {currentPage === 'course-demo' && <CourseDemo />}
 
               {currentPage === 'upload' && <DocumentManager mode="upload" />}
 

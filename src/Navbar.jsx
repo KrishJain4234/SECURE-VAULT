@@ -2,6 +2,7 @@ export default function Navbar({ currentPage, setCurrentPage }) {
   const navItems = [
     { id: 'home', label: 'HOME' },
     { id: 'issue-certificate', label: 'ISSUE CERTIFICATE' },
+    { id: 'course-demo', label: 'ACADEMY DEMO' },
     { id: 'upload', label: 'UPLOAD FILE' },
     { id: 'verify', label: 'VERIFY FILE' },
     { id: 'download', label: 'FETCH & DECRYPT' },
@@ -46,7 +47,7 @@ const navbarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '1.2rem 4rem',
+  padding: '1rem 2rem',
   background: 'rgba(5, 5, 8, 0.95)',
   backdropFilter: 'blur(10px)',
   borderBottom: '2px solid rgba(0, 243, 255, 0.3)',
@@ -57,16 +58,18 @@ const navbarStyle = {
 
 const logoStyle = {
   fontFamily: '"Courier New", Courier, monospace',
-  fontSize: '1.5rem',
+  fontSize: '1.4rem',
   fontWeight: 'bold',
   color: 'var(--neon-blue)',
   textShadow: '0 0 5px var(--neon-blue)',
-  letterSpacing: '2px'
+  letterSpacing: '2px',
+  whiteSpace: 'nowrap'
 };
 
 const navStyle = {
   display: 'flex',
-  gap: '2rem',
+  alignItems: 'center',
+  gap: '1.2rem',
   listStyle: 'none',
   margin: 0,
   padding: 0
@@ -75,10 +78,11 @@ const navStyle = {
 const navItemStyle = {
   cursor: 'pointer',
   fontFamily: '"Courier New", Courier, monospace',
-  fontSize: '1rem',
+  fontSize: '0.85rem',
   fontWeight: 'bold',
   color: '#888',
-  letterSpacing: '1px',
+  letterSpacing: '0.5px',
+  whiteSpace: 'nowrap',
   transition: 'all 0.3s',
   padding: '0.5rem 0'
 };
